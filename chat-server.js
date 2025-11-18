@@ -2369,6 +2369,181 @@ app.get('/api/discovery/services', (req, res) => {
     }
 });
 
+// Workflow execution endpoint
+app.post('/api/workflow/execute', async (req, res) => {
+    try {
+        const { nodes, connections } = req.body;
+
+        console.log(`⚙️ Executing workflow with ${nodes.length} nodes and ${connections.length} connections`);
+
+        // Validate workflow structure
+        if (!nodes || !Array.isArray(nodes) || nodes.length === 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid workflow: must have at least one node'
+            });
+        }
+
+        // Find trigger nodes (starting points)
+        const triggerNodes = nodes.filter(n => n.type.startsWith('trigger-'));
+        if (triggerNodes.length === 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'Workflow must have at least one trigger node'
+            });
+        }
+
+        // Build execution graph
+        const executionResults = [];
+        const nodeOutputs = new Map();
+
+        // Helper function to find next nodes
+        const getNextNodes = (nodeId) => {
+            return connections
+                .filter(c => c.from === nodeId)
+                .map(c => nodes.find(n => n.id === c.to))
+                .filter(n => n);
+        };
+
+        // Execute a single node
+        const executeNode = async (node, input) => {
+            console.log(`  Executing node: ${node.label} (${node.type})`);
+
+            let result = { nodeId: node.id, type: node.type, success: true };
+
+            try {
+                switch (node.type) {
+                    case 'trigger-manual':
+                        result.output = { triggered: true, timestamp: new Date().toISOString() };
+                        break;
+
+                    case 'trigger-signal':
+                        result.output = {
+                            triggered: true,
+                            service: node.config.service || 'unknown',
+                            signal: node.config.signal || 'unknown'
+                        };
+                        break;
+
+                    case 'dbus-method':
+                        // Placeholder for D-Bus method call
+                        result.output = {
+                            service: node.config.service,
+                            method: node.config.method,
+                            params: node.config.params,
+                            result: 'Success (simulated)',
+                            note: 'D-Bus integration pending'
+                        };
+                        break;
+
+                    case 'dbus-property-get':
+                        result.output = {
+                            service: node.config.service,
+                            property: node.config.property,
+                            value: 'example-value (simulated)',
+                            note: 'D-Bus integration pending'
+                        };
+                        break;
+
+                    case 'dbus-property-set':
+                        result.output = {
+                            service: node.config.service,
+                            property: node.config.property,
+                            value: node.config.value,
+                            success: true,
+                            note: 'D-Bus integration pending'
+                        };
+                        break;
+
+                    case 'condition':
+                        const condition = node.config.expression || 'true';
+                        result.output = {
+                            condition: condition,
+                            result: eval(condition.replace(/[^0-9+\-*/()<>=&| ]/g, '')),
+                            input: input
+                        };
+                        break;
+
+                    case 'transform':
+                        result.output = {
+                            script: node.config.script,
+                            input: input,
+                            output: input // Placeholder - would execute script
+                        };
+                        break;
+
+                    case 'delay':
+                        const delayMs = parseInt(node.config.ms) || 1000;
+                        await new Promise(resolve => setTimeout(resolve, Math.min(delayMs, 5000)));
+                        result.output = { delayed: delayMs, input: input };
+                        break;
+
+                    case 'output-log':
+                        console.log(`[Workflow Log] ${JSON.stringify(input)}`);
+                        result.output = { logged: true, level: node.config.level, data: input };
+                        break;
+
+                    case 'output-notification':
+                        result.output = {
+                            title: node.config.title || 'Workflow Notification',
+                            message: node.config.message || JSON.stringify(input),
+                            sent: true
+                        };
+                        break;
+
+                    default:
+                        result.output = { type: node.type, input: input };
+                }
+            } catch (error) {
+                result.success = false;
+                result.error = error.message;
+            }
+
+            return result;
+        };
+
+        // BFS execution starting from trigger nodes
+        const executionQueue = triggerNodes.map(n => ({ node: n, input: null }));
+        const visited = new Set();
+
+        while (executionQueue.length > 0) {
+            const { node, input } = executionQueue.shift();
+
+            if (visited.has(node.id)) continue;
+            visited.add(node.id);
+
+            const result = await executeNode(node, input);
+            executionResults.push(result);
+            nodeOutputs.set(node.id, result.output);
+
+            // Queue next nodes
+            const nextNodes = getNextNodes(node.id);
+            nextNodes.forEach(nextNode => {
+                executionQueue.push({ node: nextNode, input: result.output });
+            });
+        }
+
+        console.log(`✅ Workflow execution completed: ${executionResults.length} nodes executed`);
+
+        res.json({
+            success: true,
+            data: {
+                executionResults,
+                nodesExecuted: executionResults.length,
+                totalNodes: nodes.length,
+                timestamp: new Date().toISOString()
+            }
+        });
+
+    } catch (error) {
+        console.error('Workflow execution error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
+
 // Logs endpoint
 app.get('/api/logs', (req, res) => {
     try {

@@ -1547,3 +1547,258 @@ body {
 .output-line {
     padding: 4px 0;
 }
+
+/* Dark Theme Workflow Styles */
+[data-theme="dark"] .workflow-palette,
+[data-theme="dark"] .workflow-properties {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] .palette-header,
+[data-theme="dark"] .properties-header {
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] .palette-category {
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] .palette-category-header {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .palette-category-header:hover {
+    background: #475569;
+}
+
+[data-theme="dark"] .palette-node {
+    background: var(--bg-tertiary);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .palette-node:hover {
+    background: #475569;
+    border-color: var(--color-info);
+}
+
+[data-theme="dark"] .workflow-canvas-container {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] .workflow-canvas {
+    background-image:
+        linear-gradient(var(--border-color) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border-color) 1px, transparent 1px);
+}
+
+[data-theme="dark"] .workflow-output {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] .output-header {
+    background: var(--bg-tertiary);
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] .properties-placeholder,
+[data-theme="dark"] .canvas-hint {
+    color: var(--text-tertiary);
+}
+
+[data-theme="dark"] .canvas-hint h3 {
+    color: var(--text-secondary);
+}
+
+/* Workflow node element enhancements */
+.workflow-node-element {
+    cursor: move;
+    transition: opacity 0.2s;
+}
+
+.workflow-node-element:hover {
+    opacity: 0.9;
+}
+
+.workflow-node-element rect {
+    transition: all 0.2s;
+}
+
+.node-property-editor {
+    padding: 10px 0;
+}
+
+.node-property-editor h4 {
+    margin: 0 0 15px 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 5px;
+    text-transform: capitalize;
+}
+
+.form-control-sm {
+    width: 100%;
+    padding: 6px 10px;
+    font-size: 13px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    transition: border-color 0.2s;
+}
+
+.form-control-sm:focus {
+    outline: none;
+    border-color: var(--color-info);
+}
+
+.form-control-sm:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.btn-danger {
+    background: var(--color-danger);
+    color: white;
+    border: none;
+}
+
+.btn-danger:hover {
+    background: #dc2626;
+}
+
+/* Animations */
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideIn {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(0); }
+}
+
+/* Enhanced button states */
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.btn-success {
+    background: var(--color-success);
+    color: white;
+    transition: all 0.2s;
+}
+
+.btn-success:hover:not(:disabled) {
+    background: #059669;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(16, 185, 129, 0.3);
+}
+
+.btn-success:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+/* Improved tooltips */
+[title] {
+    position: relative;
+}
+
+.tooltip {
+    position: absolute;
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 10000;
+    animation: fadeIn 0.2s;
+}
+
+/* Enhanced form controls */
+.form-control,
+.form-select {
+    transition: all 0.2s;
+}
+
+.form-control:hover,
+.form-select:hover {
+    border-color: var(--color-info);
+}
+
+/* Better activity feed animations */
+.feed-item {
+    animation: slideIn 0.3s ease-out;
+}
+
+/* Enhanced stat cards */
+.stat-card {
+    transition: all 0.3s;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+/* Smooth section transitions */
+.section {
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* Better connection visual feedback */
+.workflow-connection {
+    transition: stroke 0.2s, stroke-width 0.2s;
+}
+
+.workflow-connection:hover {
+    stroke: #60a5fa !important;
+    stroke-width: 3 !important;
+}
+
+/* Keyboard shortcuts hint */
+.keyboard-hint {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 10px 15px;
+    border-radius: 6px;
+    font-size: 12px;
+    z-index: 9999;
+    animation: fadeIn 0.3s;
+}
+
+.keyboard-hint kbd {
+    background: rgba(255, 255, 255, 0.2);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: monospace;
+    margin: 0 2px;
+}

@@ -16,7 +16,17 @@ class MCPControlCenter {
         this.activityFeed = [];
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 5;
-        
+
+        // Workflow builder state
+        this.workflowNodes = [];
+        this.workflowConnections = [];
+        this.workflowZoom = 1;
+        this.selectedNode = null;
+        this.draggedNode = null;
+        this.connectionStart = null;
+        this.nodeIdCounter = 0;
+        this.canvasOffset = { x: 0, y: 0 };
+
         this.init();
     }
 
@@ -139,6 +149,64 @@ class MCPControlCenter {
                 this.sendChatMessage();
             });
         }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            // Ctrl/Cmd + S: Save workflow
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                const activeSection = document.querySelector('.section.active');
+                if (activeSection && activeSection.id === 'workflow') {
+                    e.preventDefault();
+                    this.saveWorkflow();
+                }
+            }
+            // Ctrl/Cmd + E: Execute workflow
+            if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
+                const activeSection = document.querySelector('.section.active');
+                if (activeSection && activeSection.id === 'workflow') {
+                    e.preventDefault();
+                    this.executeWorkflow();
+                }
+            }
+            // Delete/Backspace: Delete selected node
+            if ((e.key === 'Delete' || e.key === 'Backspace') && this.selectedNode) {
+                const activeSection = document.querySelector('.section.active');
+                if (activeSection && activeSection.id === 'workflow') {
+                    const focusedElement = document.activeElement;
+                    if (focusedElement.tagName !== 'INPUT' && focusedElement.tagName !== 'TEXTAREA') {
+                        e.preventDefault();
+                        this.deleteNode(this.selectedNode.id);
+                    }
+                }
+            }
+            // Escape: Deselect node
+            if (e.key === 'Escape' && this.selectedNode) {
+                this.selectedNode = null;
+                this.renderWorkflowCanvas();
+                document.getElementById('node-properties').innerHTML = '<div class="properties-placeholder"><p>Select a node to edit its properties</p></div>';
+            }
+            // ? key: Show keyboard shortcuts
+            if (e.key === '?') {
+                this.showKeyboardShortcuts();
+            }
+        });
+    }
+
+    showKeyboardShortcuts() {
+        const shortcuts = `
+            <div style="background: var(--bg-secondary); padding: 20px; border-radius: 8px; max-width: 500px;">
+                <h3 style="margin: 0 0 15px 0;">Keyboard Shortcuts</h3>
+                <div style="display: grid; gap: 10px; font-size: 13px;">
+                    <div><kbd>Ctrl/Cmd + S</kbd> Save workflow</div>
+                    <div><kbd>Ctrl/Cmd + E</kbd> Execute workflow</div>
+                    <div><kbd>Delete/Backspace</kbd> Delete selected node</div>
+                    <div><kbd>Escape</kbd> Deselect node</div>
+                    <div><kbd>?</kbd> Show this help</div>
+                </div>
+                <button class="btn btn-sm" onclick="this.closest('.toast').remove()" style="margin-top: 15px;">Close</button>
+            </div>
+        `;
+        this.showToast(shortcuts, 'info', 10000);
     }
 
     // Navigation
@@ -1041,6 +1109,456 @@ class MCPControlCenter {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    // Workflow Builder Methods
+    initWorkflowBuilder() {
+        this.workflowNodes = [];
+        this.workflowConnections = [];
+        this.workflowZoom = 1;
+        this.selectedNode = null;
+        this.draggedNode = null;
+        this.connectionStart = null;
+        this.nodeIdCounter = 0;
+        this.canvasOffset = { x: 0, y: 0 };
+    }
+
+    createNewWorkflow() {
+        if (confirm('Create a new workflow? This will clear the current canvas.')) {
+            this.clearWorkflowCanvas();
+            this.showToast('New workflow created', 'success');
+        }
+    }
+
+    clearWorkflowCanvas() {
+        this.workflowNodes = [];
+        this.workflowConnections = [];
+        this.selectedNode = null;
+        this.renderWorkflowCanvas();
+        document.getElementById('node-properties').innerHTML = '<div class="properties-placeholder"><p>Select a node to edit its properties</p></div>';
+        document.getElementById('canvas-hint').style.display = 'flex';
+        document.getElementById('btn-execute-workflow').disabled = true;
+    }
+
+    onNodeDragStart(event) {
+        const nodeType = event.target.closest('.palette-node').getAttribute('data-node-type');
+        event.dataTransfer.setData('nodeType', nodeType);
+        event.dataTransfer.effectAllowed = 'copy';
+    }
+
+    onCanvasDragOver(event) {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'copy';
+    }
+
+    onCanvasDrop(event) {
+        event.preventDefault();
+        const nodeType = event.dataTransfer.getData('nodeType');
+        if (!nodeType) return;
+
+        const canvas = document.getElementById('workflow-canvas');
+        const rect = canvas.getBoundingClientRect();
+        const x = (event.clientX - rect.left) / this.workflowZoom - this.canvasOffset.x;
+        const y = (event.clientY - rect.top) / this.workflowZoom - this.canvasOffset.y;
+
+        this.addNodeToCanvas(nodeType, x, y);
+        document.getElementById('canvas-hint').style.display = 'none';
+    }
+
+    addNodeToCanvas(nodeType, x, y) {
+        const nodeId = `node_${this.nodeIdCounter++}`;
+        const nodeConfig = this.getNodeConfig(nodeType);
+
+        const node = {
+            id: nodeId,
+            type: nodeType,
+            x: x,
+            y: y,
+            width: 120,
+            height: 60,
+            label: nodeConfig.label,
+            icon: nodeConfig.icon,
+            inputs: nodeConfig.inputs || 1,
+            outputs: nodeConfig.outputs || 1,
+            config: nodeConfig.defaultConfig || {}
+        };
+
+        this.workflowNodes.push(node);
+        this.renderWorkflowCanvas();
+        this.showToast(`Added ${nodeConfig.label}`, 'success');
+        document.getElementById('btn-execute-workflow').disabled = this.workflowNodes.length === 0;
+    }
+
+    getNodeConfig(nodeType) {
+        const configs = {
+            'trigger-manual': { label: 'Manual Start', icon: '▶️', inputs: 0, outputs: 1, defaultConfig: {} },
+            'trigger-signal': { label: 'D-Bus Signal', icon: '📡', inputs: 0, outputs: 1, defaultConfig: { service: '', signal: '' } },
+            'dbus-method': { label: 'Method Call', icon: '🔧', inputs: 1, outputs: 1, defaultConfig: { service: '', method: '', params: '{}' } },
+            'dbus-property-get': { label: 'Get Property', icon: '📋', inputs: 1, outputs: 1, defaultConfig: { service: '', property: '' } },
+            'dbus-property-set': { label: 'Set Property', icon: '✏️', inputs: 1, outputs: 1, defaultConfig: { service: '', property: '', value: '' } },
+            'condition': { label: 'Condition', icon: '❓', inputs: 1, outputs: 2, defaultConfig: { expression: 'true' } },
+            'transform': { label: 'Transform', icon: '🔄', inputs: 1, outputs: 1, defaultConfig: { script: '' } },
+            'delay': { label: 'Delay', icon: '⏱️', inputs: 1, outputs: 1, defaultConfig: { ms: 1000 } },
+            'output-log': { label: 'Log Output', icon: '📝', inputs: 1, outputs: 0, defaultConfig: { level: 'info' } },
+            'output-notification': { label: 'Notification', icon: '🔔', inputs: 1, outputs: 0, defaultConfig: { title: '', message: '' } }
+        };
+        return configs[nodeType] || { label: nodeType, icon: '⚙️', inputs: 1, outputs: 1, defaultConfig: {} };
+    }
+
+    onCanvasMouseDown(event) {
+        if (event.target.classList.contains('node-port')) {
+            this.connectionStart = {
+                nodeId: event.target.closest('.workflow-node-element').getAttribute('data-node-id'),
+                port: event.target.getAttribute('data-port'),
+                type: event.target.getAttribute('data-port-type')
+            };
+            event.preventDefault();
+        } else if (event.target.closest('.workflow-node-element')) {
+            const nodeElement = event.target.closest('.workflow-node-element');
+            const nodeId = nodeElement.getAttribute('data-node-id');
+            this.selectedNode = this.workflowNodes.find(n => n.id === nodeId);
+            this.showNodeProperties(this.selectedNode);
+
+            this.draggedNode = {
+                nodeId: nodeId,
+                startX: event.clientX,
+                startY: event.clientY,
+                nodeStartX: this.selectedNode.x,
+                nodeStartY: this.selectedNode.y
+            };
+            event.preventDefault();
+        }
+    }
+
+    onCanvasMouseMove(event) {
+        if (this.draggedNode) {
+            const dx = (event.clientX - this.draggedNode.startX) / this.workflowZoom;
+            const dy = (event.clientY - this.draggedNode.startY) / this.workflowZoom;
+            const node = this.workflowNodes.find(n => n.id === this.draggedNode.nodeId);
+            if (node) {
+                node.x = this.draggedNode.nodeStartX + dx;
+                node.y = this.draggedNode.nodeStartY + dy;
+                this.renderWorkflowCanvas();
+            }
+        }
+    }
+
+    onCanvasMouseUp(event) {
+        if (this.connectionStart && event.target.classList.contains('node-port')) {
+            const endNodeId = event.target.closest('.workflow-node-element').getAttribute('data-node-id');
+            const endPort = event.target.getAttribute('data-port');
+            const endType = event.target.getAttribute('data-port-type');
+
+            if (this.connectionStart.type !== endType && this.connectionStart.nodeId !== endNodeId) {
+                this.addConnection(this.connectionStart, { nodeId: endNodeId, port: endPort, type: endType });
+            }
+        }
+        this.connectionStart = null;
+        this.draggedNode = null;
+    }
+
+    addConnection(start, end) {
+        const fromNode = start.type === 'output' ? start.nodeId : end.nodeId;
+        const toNode = start.type === 'output' ? end.nodeId : start.nodeId;
+        const fromPort = start.type === 'output' ? start.port : end.port;
+        const toPort = start.type === 'output' ? end.port : start.port;
+
+        // Check if connection already exists
+        const exists = this.workflowConnections.some(c =>
+            c.from === fromNode && c.to === toNode && c.fromPort === fromPort && c.toPort === toPort
+        );
+
+        if (!exists) {
+            this.workflowConnections.push({ from: fromNode, to: toNode, fromPort, toPort });
+            this.renderWorkflowCanvas();
+            this.showToast('Connection created', 'success');
+        }
+    }
+
+    renderWorkflowCanvas() {
+        const nodesLayer = document.getElementById('nodes-layer');
+        const connectionsLayer = document.getElementById('connections-layer');
+
+        nodesLayer.innerHTML = '';
+        connectionsLayer.innerHTML = '';
+
+        // Render connections
+        this.workflowConnections.forEach((conn, idx) => {
+            const fromNode = this.workflowNodes.find(n => n.id === conn.from);
+            const toNode = this.workflowNodes.find(n => n.id === conn.to);
+            if (!fromNode || !toNode) return;
+
+            const x1 = fromNode.x + fromNode.width;
+            const y1 = fromNode.y + fromNode.height / 2;
+            const x2 = toNode.x;
+            const y2 = toNode.y + toNode.height / 2;
+
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            const midX = (x1 + x2) / 2;
+            path.setAttribute('d', `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`);
+            path.setAttribute('stroke', '#3b82f6');
+            path.setAttribute('stroke-width', '2');
+            path.setAttribute('fill', 'none');
+            path.setAttribute('class', 'workflow-connection');
+            connectionsLayer.appendChild(path);
+        });
+
+        // Render nodes
+        this.workflowNodes.forEach(node => {
+            const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            g.setAttribute('class', 'workflow-node-element');
+            g.setAttribute('data-node-id', node.id);
+            g.setAttribute('transform', `translate(${node.x}, ${node.y})`);
+
+            // Node body
+            const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            rect.setAttribute('width', node.width);
+            rect.setAttribute('height', node.height);
+            rect.setAttribute('rx', '4');
+            rect.setAttribute('fill', this.selectedNode?.id === node.id ? '#1e40af' : '#1e293b');
+            rect.setAttribute('stroke', '#3b82f6');
+            rect.setAttribute('stroke-width', '2');
+            g.appendChild(rect);
+
+            // Icon and label
+            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            text.setAttribute('x', node.width / 2);
+            text.setAttribute('y', 25);
+            text.setAttribute('text-anchor', 'middle');
+            text.setAttribute('fill', '#fff');
+            text.setAttribute('font-size', '20');
+            text.textContent = node.icon;
+            g.appendChild(text);
+
+            const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            label.setAttribute('x', node.width / 2);
+            label.setAttribute('y', 45);
+            label.setAttribute('text-anchor', 'middle');
+            label.setAttribute('fill', '#94a3b8');
+            label.setAttribute('font-size', '11');
+            label.textContent = node.label;
+            g.appendChild(label);
+
+            // Input ports
+            for (let i = 0; i < node.inputs; i++) {
+                const port = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                const yPos = (node.height / (node.inputs + 1)) * (i + 1);
+                port.setAttribute('cx', '0');
+                port.setAttribute('cy', yPos);
+                port.setAttribute('r', '5');
+                port.setAttribute('fill', '#22c55e');
+                port.setAttribute('class', 'node-port');
+                port.setAttribute('data-port', i);
+                port.setAttribute('data-port-type', 'input');
+                g.appendChild(port);
+            }
+
+            // Output ports
+            for (let i = 0; i < node.outputs; i++) {
+                const port = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                const yPos = (node.height / (node.outputs + 1)) * (i + 1);
+                port.setAttribute('cx', node.width);
+                port.setAttribute('cy', yPos);
+                port.setAttribute('r', '5');
+                port.setAttribute('fill', '#3b82f6');
+                port.setAttribute('class', 'node-port');
+                port.setAttribute('data-port', i);
+                port.setAttribute('data-port-type', 'output');
+                g.appendChild(port);
+            }
+
+            nodesLayer.appendChild(g);
+        });
+    }
+
+    showNodeProperties(node) {
+        if (!node) return;
+
+        const propertiesDiv = document.getElementById('node-properties');
+        let html = `
+            <div class="node-property-editor">
+                <h4>${node.icon} ${node.label}</h4>
+                <div class="form-group">
+                    <label>Node ID</label>
+                    <input type="text" class="form-control form-control-sm" value="${node.id}" disabled>
+                </div>
+        `;
+
+        // Add type-specific config fields
+        Object.keys(node.config).forEach(key => {
+            html += `
+                <div class="form-group">
+                    <label>${key}</label>
+                    <input type="text" class="form-control form-control-sm"
+                           value="${node.config[key]}"
+                           onchange="window.mcp.updateNodeConfig('${node.id}', '${key}', this.value)">
+                </div>
+            `;
+        });
+
+        html += `
+                <div class="form-group">
+                    <button class="btn btn-sm btn-danger" onclick="window.mcp.deleteNode('${node.id}')">Delete Node</button>
+                </div>
+            </div>
+        `;
+
+        propertiesDiv.innerHTML = html;
+    }
+
+    updateNodeConfig(nodeId, key, value) {
+        const node = this.workflowNodes.find(n => n.id === nodeId);
+        if (node) {
+            node.config[key] = value;
+            this.showToast('Configuration updated', 'success');
+        }
+    }
+
+    deleteNode(nodeId) {
+        if (!confirm('Delete this node and its connections?')) return;
+
+        this.workflowNodes = this.workflowNodes.filter(n => n.id !== nodeId);
+        this.workflowConnections = this.workflowConnections.filter(c => c.from !== nodeId && c.to !== nodeId);
+        this.selectedNode = null;
+        this.renderWorkflowCanvas();
+        document.getElementById('node-properties').innerHTML = '<div class="properties-placeholder"><p>Select a node to edit its properties</p></div>';
+        this.showToast('Node deleted', 'success');
+        document.getElementById('btn-execute-workflow').disabled = this.workflowNodes.length === 0;
+    }
+
+    async validateWorkflow() {
+        if (this.workflowNodes.length === 0) {
+            this.showToast('Workflow is empty', 'error');
+            return false;
+        }
+
+        // Check for trigger nodes
+        const hasTrigger = this.workflowNodes.some(n => n.type.startsWith('trigger-'));
+        if (!hasTrigger) {
+            this.showToast('Workflow must have at least one trigger node', 'error');
+            return false;
+        }
+
+        // Check for disconnected nodes
+        const connectedNodes = new Set();
+        this.workflowConnections.forEach(c => {
+            connectedNodes.add(c.from);
+            connectedNodes.add(c.to);
+        });
+
+        const disconnected = this.workflowNodes.filter(n => !n.type.startsWith('trigger-') && !connectedNodes.has(n.id));
+        if (disconnected.length > 0) {
+            this.showToast(`Warning: ${disconnected.length} disconnected node(s)`, 'warning');
+        }
+
+        this.showToast('Workflow is valid', 'success');
+        return true;
+    }
+
+    async executeWorkflow() {
+        if (!await this.validateWorkflow()) return;
+
+        const workflowData = {
+            nodes: this.workflowNodes,
+            connections: this.workflowConnections
+        };
+
+        const executeBtn = document.getElementById('btn-execute-workflow');
+        const originalText = executeBtn.innerHTML;
+        executeBtn.disabled = true;
+        executeBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="animation: spin 1s linear infinite;"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="2" fill="none" stroke-dasharray="30" stroke-dashoffset="0"/></svg> Executing...';
+
+        try {
+            const response = await fetch('/api/workflow/execute', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(workflowData)
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                this.showToast('Workflow executed successfully', 'success');
+                this.showWorkflowOutput(result.data);
+            } else {
+                this.showToast(`Execution failed: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            console.error('Failed to execute workflow:', error);
+            this.showToast('Failed to execute workflow', 'error');
+        } finally {
+            executeBtn.disabled = false;
+            executeBtn.innerHTML = originalText;
+        }
+    }
+
+    showWorkflowOutput(data) {
+        const outputDiv = document.getElementById('workflow-output');
+        const contentDiv = document.getElementById('workflow-output-content');
+        contentDiv.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+        outputDiv.style.display = 'block';
+    }
+
+    async saveWorkflow() {
+        const name = prompt('Enter workflow name:');
+        if (!name) return;
+
+        const workflowData = {
+            name: name,
+            nodes: this.workflowNodes,
+            connections: this.workflowConnections,
+            created: new Date().toISOString()
+        };
+
+        localStorage.setItem(`workflow_${name}`, JSON.stringify(workflowData));
+        this.showToast(`Workflow "${name}" saved`, 'success');
+    }
+
+    async loadWorkflow() {
+        const name = prompt('Enter workflow name to load:');
+        if (!name) return;
+
+        const data = localStorage.getItem(`workflow_${name}`);
+        if (!data) {
+            this.showToast('Workflow not found', 'error');
+            return;
+        }
+
+        const workflowData = JSON.parse(data);
+        this.workflowNodes = workflowData.nodes;
+        this.workflowConnections = workflowData.connections;
+        this.renderWorkflowCanvas();
+        this.showToast(`Workflow "${name}" loaded`, 'success');
+        document.getElementById('canvas-hint').style.display = 'none';
+        document.getElementById('btn-execute-workflow').disabled = false;
+    }
+
+    setWorkflowZoom(zoom) {
+        this.workflowZoom = parseFloat(zoom);
+        const canvas = document.getElementById('workflow-canvas');
+        const nodesLayer = document.getElementById('nodes-layer');
+        const connectionsLayer = document.getElementById('connections-layer');
+        nodesLayer.setAttribute('transform', `scale(${this.workflowZoom})`);
+        connectionsLayer.setAttribute('transform', `scale(${this.workflowZoom})`);
+    }
+
+    togglePaletteCategory(categoryId) {
+        const items = document.getElementById(`palette-${categoryId}`);
+        const isHidden = items.style.display === 'none';
+        items.style.display = isHidden ? 'block' : 'none';
+
+        const toggle = items.previousElementSibling.querySelector('.palette-toggle');
+        toggle.textContent = isHidden ? '▼' : '▶';
+    }
+
+    filterNodePalette(searchTerm) {
+        const nodes = document.querySelectorAll('.palette-node');
+        const term = searchTerm.toLowerCase();
+
+        nodes.forEach(node => {
+            const text = node.textContent.toLowerCase();
+            node.style.display = text.includes(term) ? 'flex' : 'none';
+        });
     }
 }
 
