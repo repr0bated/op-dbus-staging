@@ -185,6 +185,14 @@ class MCPControlCenter {
                 this.renderWorkflowCanvas();
                 document.getElementById('node-properties').innerHTML = '<div class="properties-placeholder"><p>Select a node to edit its properties</p></div>';
             }
+            // Ctrl/Cmd + D: Duplicate node
+            if ((e.ctrlKey || e.metaKey) && e.key === 'd' && this.selectedNode) {
+                const activeSection = document.querySelector('.section.active');
+                if (activeSection && activeSection.id === 'workflow') {
+                    e.preventDefault();
+                    this.duplicateNode(this.selectedNode.id);
+                }
+            }
             // ? key: Show keyboard shortcuts
             if (e.key === '?') {
                 this.showKeyboardShortcuts();
@@ -192,21 +200,131 @@ class MCPControlCenter {
         });
     }
 
+    duplicateNode(nodeId) {
+        const node = this.workflowNodes.find(n => n.id === nodeId);
+        if (!node) return;
+
+        const newNode = {
+            ...JSON.parse(JSON.stringify(node)), // Deep copy
+            id: `node_${this.nodeIdCounter++}`,
+            x: node.x + 30, // Offset slightly
+            y: node.y + 30,
+            config: { ...node.config }
+        };
+
+        this.workflowNodes.push(newNode);
+        this.selectedNode = newNode;
+        this.renderWorkflowCanvas();
+        this.showNodeProperties(newNode);
+        this.showToast('Node duplicated', 'success');
+    }
+
     showKeyboardShortcuts() {
         const shortcuts = `
-            <div style="background: var(--bg-secondary); padding: 20px; border-radius: 8px; max-width: 500px;">
-                <h3 style="margin: 0 0 15px 0;">Keyboard Shortcuts</h3>
+            <div style="background: var(--bg-secondary); padding: 20px; border-radius: 8px; max-width: 600px;">
+                <h3 style="margin: 0 0 15px 0; color: var(--color-primary);">⌨️ Keyboard Shortcuts</h3>
                 <div style="display: grid; gap: 10px; font-size: 13px;">
-                    <div><kbd>Ctrl/Cmd + S</kbd> Save workflow</div>
-                    <div><kbd>Ctrl/Cmd + E</kbd> Execute workflow</div>
-                    <div><kbd>Delete/Backspace</kbd> Delete selected node</div>
-                    <div><kbd>Escape</kbd> Deselect node</div>
-                    <div><kbd>?</kbd> Show this help</div>
+                    <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border-color);">
+                        <span><kbd>Ctrl/Cmd + S</kbd></span>
+                        <span style="color: var(--text-secondary);">Save workflow</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border-color);">
+                        <span><kbd>Ctrl/Cmd + E</kbd></span>
+                        <span style="color: var(--text-secondary);">Execute workflow</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border-color);">
+                        <span><kbd>Ctrl/Cmd + D</kbd></span>
+                        <span style="color: var(--text-secondary);">Duplicate selected node</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border-color);">
+                        <span><kbd>Delete/Backspace</kbd></span>
+                        <span style="color: var(--text-secondary);">Delete selected node</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border-color);">
+                        <span><kbd>Escape</kbd></span>
+                        <span style="color: var(--text-secondary);">Deselect node</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border-color);">
+                        <span><kbd>Right-click connection</kbd></span>
+                        <span style="color: var(--text-secondary);">Delete connection</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 6px 0;">
+                        <span><kbd>?</kbd></span>
+                        <span style="color: var(--text-secondary);">Show this help</span>
+                    </div>
                 </div>
-                <button class="btn btn-sm" onclick="this.closest('.toast').remove()" style="margin-top: 15px;">Close</button>
+                <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border-color);">
+                    <h4 style="margin: 0 0 10px 0; font-size: 13px; color: var(--text-primary);">💡 Tips</h4>
+                    <ul style="margin: 0; padding-left: 20px; font-size: 12px; color: var(--text-secondary); line-height: 1.6;">
+                        <li>Drag nodes from the palette onto the canvas</li>
+                        <li>Click and drag between ports to create connections</li>
+                        <li>Use templates for quick workflow creation</li>
+                        <li>Export workflows to share with others</li>
+                        <li>Workflows must have at least one trigger node</li>
+                    </ul>
+                </div>
+                <button class="btn btn-sm btn-primary" onclick="this.closest('.toast').remove()" style="margin-top: 15px; width: 100%;">Got it!</button>
             </div>
         `;
-        this.showToast(shortcuts, 'info', 10000);
+        this.showToast(shortcuts, 'info', 15000);
+    }
+
+    showWorkflowHelp() {
+        const help = `
+            <div style="background: var(--bg-secondary); padding: 20px; border-radius: 8px; max-width: 700px; max-height: 80vh; overflow-y: auto;">
+                <h3 style="margin: 0 0 15px 0; color: var(--color-primary);">📖 Workflow Builder Guide</h3>
+
+                <div style="margin-bottom: 20px;">
+                    <h4 style="margin: 0 0 8px 0; font-size: 14px;">🎯 Getting Started</h4>
+                    <p style="margin: 0; font-size: 13px; color: var(--text-secondary); line-height: 1.6;">
+                        The Workflow Builder lets you create visual automation workflows by connecting nodes.
+                        Each node performs a specific action, and connections define the flow of data.
+                    </p>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <h4 style="margin: 0 0 8px 0; font-size: 14px;">📦 Node Types</h4>
+                    <div style="display: grid; gap: 8px; font-size: 12px;">
+                        <div style="padding: 8px; background: var(--bg-primary); border-radius: 4px;">
+                            <strong>⚡ Triggers:</strong> Start points for workflows (Manual Start, D-Bus Signal)
+                        </div>
+                        <div style="padding: 8px; background: var(--bg-primary); border-radius: 4px;">
+                            <strong>📞 D-Bus Calls:</strong> Interact with system services (Method Call, Get/Set Property)
+                        </div>
+                        <div style="padding: 8px; background: var(--bg-primary); border-radius: 4px;">
+                            <strong>🔀 Logic:</strong> Control flow (Condition, Transform, Delay)
+                        </div>
+                        <div style="padding: 8px; background: var(--bg-primary); border-radius: 4px;">
+                            <strong>📤 Output:</strong> Send results (Log, Notification)
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <h4 style="margin: 0 0 8px 0; font-size: 14px;">🔗 Creating Workflows</h4>
+                    <ol style="margin: 0; padding-left: 20px; font-size: 13px; color: var(--text-secondary); line-height: 1.8;">
+                        <li>Drag a Trigger node from the palette to the canvas</li>
+                        <li>Add action nodes (D-Bus calls, logic, outputs)</li>
+                        <li>Connect nodes by clicking and dragging between ports</li>
+                        <li>Configure each node's properties in the right panel</li>
+                        <li>Validate your workflow before execution</li>
+                    </ol>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <h4 style="margin: 0 0 8px 0; font-size: 14px;">💾 Saving & Sharing</h4>
+                    <p style="margin: 0 0 8px 0; font-size: 13px; color: var(--text-secondary); line-height: 1.6;">
+                        • <strong>Save:</strong> Store in browser localStorage<br>
+                        • <strong>Export:</strong> Download as JSON file<br>
+                        • <strong>Import:</strong> Load from JSON file<br>
+                        • <strong>Templates:</strong> Quick start with pre-built workflows
+                    </p>
+                </div>
+
+                <button class="btn btn-sm btn-primary" onclick="this.closest('.toast').remove()" style="width: 100%;">Close</button>
+            </div>
+        `;
+        this.showToast(help, 'info', 20000);
     }
 
     // Navigation
@@ -1485,23 +1603,51 @@ class MCPControlCenter {
                     <label>Node ID</label>
                     <input type="text" class="form-control form-control-sm" value="${node.id}" disabled>
                 </div>
+                <div class="form-group">
+                    <label>Type</label>
+                    <input type="text" class="form-control form-control-sm" value="${node.type}" disabled>
+                </div>
         `;
 
-        // Add type-specific config fields
+        // Add type-specific config fields with better input types
         Object.keys(node.config).forEach(key => {
+            const value = node.config[key];
+            const isNumber = key === 'ms' || key === 'delay' || key === 'timeout';
+            const isJson = key === 'params' || key === 'data';
+
             html += `
                 <div class="form-group">
-                    <label>${key}</label>
-                    <input type="text" class="form-control form-control-sm"
-                           value="${node.config[key]}"
-                           onchange="window.mcp.updateNodeConfig('${node.id}', '${key}', this.value)">
+                    <label>${key.replace(/_/g, ' ')}</label>
+                    ${isJson ? `
+                        <textarea class="form-control form-control-sm" rows="3"
+                                  onchange="window.mcp.updateNodeConfig('${node.id}', '${key}', this.value)"
+                                  style="font-family: monospace; font-size: 12px;">${this.escapeHtml(String(value))}</textarea>
+                    ` : `
+                        <input type="${isNumber ? 'number' : 'text'}" class="form-control form-control-sm"
+                               value="${this.escapeHtml(String(value))}"
+                               ${isNumber ? 'min="0" step="100"' : ''}
+                               onchange="window.mcp.updateNodeConfig('${node.id}', '${key}', this.value)"
+                               placeholder="Enter ${key}">
+                    `}
                 </div>
             `;
         });
 
         html += `
-                <div class="form-group">
-                    <button class="btn btn-sm btn-danger" onclick="window.mcp.deleteNode('${node.id}')">Delete Node</button>
+                <div class="form-group" style="display: flex; gap: 8px;">
+                    <button class="btn btn-sm" onclick="window.mcp.duplicateNode('${node.id}')" style="flex: 1;" title="Duplicate this node">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="vertical-align: middle;">
+                            <rect x="2" y="2" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/>
+                            <rect x="6" y="6" width="8" height="8" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/>
+                        </svg>
+                        Duplicate
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="window.mcp.deleteNode('${node.id}')" style="flex: 1;">
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="vertical-align: middle;">
+                            <path d="M2 4H14M5 4V2C5 1.4 5.4 1 6 1H10C10.6 1 11 1.4 11 2V4M7 7V11M10 7V11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        </svg>
+                        Delete
+                    </button>
                 </div>
             </div>
         `;
