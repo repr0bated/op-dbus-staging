@@ -363,14 +363,14 @@
                 <div class="section-header">
                     <h2>⚙️ Workflow Builder</h2>
                     <div class="workflow-controls">
-                        <button class="btn btn-primary" onclick="window.mcp.createNewWorkflow()">
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <button class="btn btn-primary" onclick="window.mcp.createNewWorkflow()" aria-label="Create new workflow">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                                 <path d="M8 3V13M3 8H13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                             </svg>
                             New Workflow
                         </button>
-                        <button class="btn btn-sm btn-success" onclick="window.mcp.executeWorkflow()" id="btn-execute-workflow" disabled>
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <button class="btn btn-sm btn-success" onclick="window.mcp.executeWorkflow()" id="btn-execute-workflow" disabled aria-label="Execute workflow">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                                 <path d="M5 3L13 8L5 13V3Z" fill="currentColor"/>
                             </svg>
                             Execute
@@ -524,6 +524,8 @@
                     <!-- Center: Canvas -->
                     <div class="workflow-canvas-container">
                         <svg id="workflow-canvas" class="workflow-canvas"
+                             role="application"
+                             aria-label="Workflow canvas - drag and drop nodes here"
                              ondrop="window.mcp.onCanvasDrop(event)"
                              ondragover="window.mcp.onCanvasDragOver(event)"
                              onmousedown="window.mcp.onCanvasMouseDown(event)"

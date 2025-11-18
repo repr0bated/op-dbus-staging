@@ -1352,21 +1352,30 @@ class MCPControlCenter {
         const node = {
             id: nodeId,
             type: nodeType,
-            x: x,
-            y: y,
+            x: Math.max(20, Math.min(x, 800)),  // Keep within bounds
+            y: Math.max(20, Math.min(y, 500)),
             width: 120,
             height: 60,
             label: nodeConfig.label,
             icon: nodeConfig.icon,
             inputs: nodeConfig.inputs || 1,
             outputs: nodeConfig.outputs || 1,
-            config: nodeConfig.defaultConfig || {}
+            config: nodeConfig.defaultConfig || {},
+            created: new Date().toISOString()
         };
 
         this.workflowNodes.push(node);
+        this.selectedNode = node;
         this.renderWorkflowCanvas();
+        this.showNodeProperties(node);
         this.showToast(`Added ${nodeConfig.label}`, 'success');
         document.getElementById('btn-execute-workflow').disabled = this.workflowNodes.length === 0;
+
+        // Add visual feedback animation
+        const addedNode = document.querySelector(`[data-node-id="${nodeId}"]`);
+        if (addedNode) {
+            addedNode.style.animation = 'fadeIn 0.3s ease-out';
+        }
     }
 
     getNodeConfig(nodeType) {
@@ -1744,8 +1753,38 @@ class MCPControlCenter {
     showWorkflowOutput(data) {
         const outputDiv = document.getElementById('workflow-output');
         const contentDiv = document.getElementById('workflow-output-content');
-        contentDiv.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+
+        let html = '<div style="font-family: monospace; font-size: 12px;">';
+
+        if (data.executionResults && Array.isArray(data.executionResults)) {
+            html += '<div style="margin-bottom: 15px; padding: 10px; background: var(--bg-primary); border-radius: 4px;">';
+            html += `<strong>Execution Summary</strong><br>`;
+            html += `Nodes Executed: ${data.nodesExecuted} / ${data.totalNodes}<br>`;
+            html += `Time: ${new Date(data.timestamp).toLocaleTimeString()}`;
+            html += '</div>';
+
+            data.executionResults.forEach((result, idx) => {
+                const success = result.success !== false;
+                const bgColor = success ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)';
+                const borderColor = success ? 'var(--color-success)' : 'var(--color-danger)';
+
+                html += `
+                    <div style="margin-bottom: 10px; padding: 10px; background: ${bgColor}; border-left: 3px solid ${borderColor}; border-radius: 4px;">
+                        <div style="font-weight: bold; margin-bottom: 5px;">
+                            ${success ? '✓' : '✗'} Node ${idx + 1}: ${result.type}
+                        </div>
+                        <pre style="margin: 5px 0; font-size: 11px; white-space: pre-wrap;">${JSON.stringify(result.output || result.error, null, 2)}</pre>
+                    </div>
+                `;
+            });
+        } else {
+            html += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+        }
+
+        html += '</div>';
+        contentDiv.innerHTML = html;
         outputDiv.style.display = 'block';
+        outputDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
     async saveWorkflow() {
