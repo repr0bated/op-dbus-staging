@@ -1,0 +1,20 @@
+{
+  "name": "deepseek-netmaker-chat",
+  "version": "1.0.0",
+  "description": "DeepSeek Chat Interface for Netmaker Network",
+  "main": "chat-server.js",
+  "scripts": {
+    "start": "node chat-server.js",
+    "dev": "node chat-server.js"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "axios": "^1.6.2",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "ws": "^8.18.3"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
