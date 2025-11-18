@@ -393,6 +393,25 @@
                         <button class="btn btn-sm" onclick="window.mcp.loadWorkflow()">
                             📂 Load
                         </button>
+                        <button class="btn btn-sm" onclick="window.mcp.exportWorkflow()" title="Export workflow to JSON file">
+                            📤 Export
+                        </button>
+                        <button class="btn btn-sm" onclick="window.mcp.importWorkflow()" title="Import workflow from JSON file">
+                            📥 Import
+                        </button>
+                        <div style="display: inline-block; position: relative;">
+                            <button class="btn btn-sm" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">
+                                📋 Templates
+                            </button>
+                            <div style="display: none; position: absolute; top: 100%; left: 0; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; min-width: 200px; box-shadow: var(--shadow-md); z-index: 1000; margin-top: 5px;">
+                                <button class="btn btn-sm" style="width: 100%; text-align: left; border-radius: 0;" onclick="window.mcp.loadWorkflowTemplate('dbus-monitor'); this.closest('div').style.display = 'none'">
+                                    📡 D-Bus Monitor
+                                </button>
+                                <button class="btn btn-sm" style="width: 100%; text-align: left; border-radius: 0;" onclick="window.mcp.loadWorkflowTemplate('simple-automation'); this.closest('div').style.display = 'none'">
+                                    ⚙️ Simple Automation
+                                </button>
+                            </div>
+                        </div>
                         <select id="workflow-zoom" class="form-select form-select-sm" onchange="window.mcp.setWorkflowZoom(this.value)">
                             <option value="0.5">50%</option>
                             <option value="0.75">75%</option>
@@ -401,6 +420,12 @@
                             <option value="1.5">150%</option>
                         </select>
                     </div>
+                </div>
+
+                <div class="workflow-stats" style="margin-bottom: 15px; padding: 12px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; display: flex; gap: 20px; font-size: 13px;">
+                    <div><strong>Nodes:</strong> <span id="workflow-node-count">0</span></div>
+                    <div><strong>Connections:</strong> <span id="workflow-connection-count">0</span></div>
+                    <div><strong>Status:</strong> <span id="workflow-status">Empty</span></div>
                 </div>
 
                 <div class="workflow-builder">

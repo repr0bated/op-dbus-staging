@@ -390,6 +390,68 @@ class MCPControlCenter {
         });
     }
 
+    async discoverServices() {
+        console.log('🔍 Starting D-Bus service discovery...');
+        this.showToast('Discovering services...', 'info');
+
+        // Show loading state
+        const discoverBtn = document.querySelector('.discovery-controls .btn-primary');
+        const originalText = discoverBtn ? discoverBtn.innerHTML : '';
+        if (discoverBtn) {
+            discoverBtn.disabled = true;
+            discoverBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="animation: spin 1s linear infinite;"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="2" fill="none" stroke-dasharray="30" stroke-dashoffset="0"/></svg> Discovering...';
+        }
+
+        try {
+            const response = await fetch('/api/discovery/run', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({})
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                console.log('✅ Discovery completed');
+                this.services = result.data || [];
+                this.renderDiscoveryResults();
+                this.showToast(`Discovered ${this.services.length} services`, 'success');
+                this.updateDiscoveryStats();
+            } else {
+                console.error('❌ Discovery failed:', result.error);
+                this.showToast('Discovery failed', 'error');
+            }
+        } catch (error) {
+            console.error('❌ Discovery request error:', error);
+            this.showToast('Discovery request failed', 'error');
+        } finally {
+            if (discoverBtn) {
+                discoverBtn.disabled = false;
+                discoverBtn.innerHTML = originalText;
+            }
+        }
+    }
+
+    updateDiscoveryStats() {
+        const statsDiv = document.getElementById('discovery-stats');
+        if (!statsDiv) return;
+
+        statsDiv.style.display = 'block';
+        document.getElementById('stat-services').textContent = this.services.length;
+
+        // Count objects, interfaces, methods
+        let objects = 0, interfaces = 0, methods = 0;
+        this.services.forEach(service => {
+            if (service.objects) objects += service.objects.length || 0;
+            if (service.interfaces) interfaces += service.interfaces.length || 0;
+            if (service.methods) methods += service.methods.length || 0;
+        });
+
+        document.getElementById('stat-objects').textContent = objects;
+        document.getElementById('stat-interfaces').textContent = interfaces;
+        document.getElementById('stat-methods').textContent = methods;
+    }
+
     renderDiscoveryResults() {
         const container = document.getElementById('discovery-results');
         if (!container) {
@@ -1276,6 +1338,24 @@ class MCPControlCenter {
     }
 
     renderWorkflowCanvas() {
+        // Update workflow stats
+        const nodeCount = document.getElementById('workflow-node-count');
+        const connCount = document.getElementById('workflow-connection-count');
+        const statusElem = document.getElementById('workflow-status');
+
+        if (nodeCount) nodeCount.textContent = this.workflowNodes.length;
+        if (connCount) connCount.textContent = this.workflowConnections.length;
+        if (statusElem) {
+            if (this.workflowNodes.length === 0) {
+                statusElem.textContent = 'Empty';
+                statusElem.style.color = 'var(--text-tertiary)';
+            } else {
+                const hasTrigger = this.workflowNodes.some(n => n.type.startsWith('trigger-'));
+                statusElem.textContent = hasTrigger ? 'Ready' : 'No Trigger';
+                statusElem.style.color = hasTrigger ? 'var(--color-success)' : 'var(--color-warning)';
+            }
+        }
+
         const nodesLayer = document.getElementById('nodes-layer');
         const connectionsLayer = document.getElementById('connections-layer');
 
@@ -1300,6 +1380,29 @@ class MCPControlCenter {
             path.setAttribute('stroke-width', '2');
             path.setAttribute('fill', 'none');
             path.setAttribute('class', 'workflow-connection');
+            path.setAttribute('data-conn-idx', idx);
+            path.style.cursor = 'pointer';
+
+            // Add right-click to delete connection
+            path.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                if (confirm('Delete this connection?')) {
+                    this.workflowConnections.splice(idx, 1);
+                    this.renderWorkflowCanvas();
+                    this.showToast('Connection deleted', 'success');
+                }
+            });
+
+            // Add hover effect
+            path.addEventListener('mouseenter', () => {
+                path.setAttribute('stroke', '#60a5fa');
+                path.setAttribute('stroke-width', '3');
+            });
+            path.addEventListener('mouseleave', () => {
+                path.setAttribute('stroke', '#3b82f6');
+                path.setAttribute('stroke-width', '2');
+            });
+
             connectionsLayer.appendChild(path);
         });
 
@@ -1529,6 +1632,105 @@ class MCPControlCenter {
         this.workflowConnections = workflowData.connections;
         this.renderWorkflowCanvas();
         this.showToast(`Workflow "${name}" loaded`, 'success');
+        document.getElementById('canvas-hint').style.display = 'none';
+        document.getElementById('btn-execute-workflow').disabled = false;
+    }
+
+    exportWorkflow() {
+        if (this.workflowNodes.length === 0) {
+            this.showToast('No workflow to export', 'warning');
+            return;
+        }
+
+        const workflowData = {
+            name: 'exported-workflow',
+            nodes: this.workflowNodes,
+            connections: this.workflowConnections,
+            created: new Date().toISOString(),
+            version: '1.0'
+        };
+
+        const dataStr = JSON.stringify(workflowData, null, 2);
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `workflow-${Date.now()}.json`;
+        link.click();
+        URL.revokeObjectURL(url);
+        this.showToast('Workflow exported', 'success');
+    }
+
+    importWorkflow() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        input.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                try {
+                    const workflowData = JSON.parse(event.target.result);
+                    if (!workflowData.nodes || !workflowData.connections) {
+                        throw new Error('Invalid workflow file');
+                    }
+
+                    this.workflowNodes = workflowData.nodes;
+                    this.workflowConnections = workflowData.connections;
+                    this.renderWorkflowCanvas();
+                    this.showToast('Workflow imported', 'success');
+                    document.getElementById('canvas-hint').style.display = 'none';
+                    document.getElementById('btn-execute-workflow').disabled = false;
+                } catch (error) {
+                    this.showToast(`Import failed: ${error.message}`, 'error');
+                }
+            };
+            reader.readAsText(file);
+        };
+        input.click();
+    }
+
+    loadWorkflowTemplate(templateName) {
+        const templates = {
+            'dbus-monitor': {
+                name: 'D-Bus Monitor Template',
+                nodes: [
+                    { id: 'node_0', type: 'trigger-signal', x: 100, y: 100, width: 120, height: 60, label: 'D-Bus Signal', icon: '📡', inputs: 0, outputs: 1, config: { service: 'org.freedesktop.DBus', signal: 'NameOwnerChanged' } },
+                    { id: 'node_1', type: 'transform', x: 300, y: 100, width: 120, height: 60, label: 'Transform', icon: '🔄', inputs: 1, outputs: 1, config: { script: 'return input;' } },
+                    { id: 'node_2', type: 'output-log', x: 500, y: 100, width: 120, height: 60, label: 'Log Output', icon: '📝', inputs: 1, outputs: 0, config: { level: 'info' } }
+                ],
+                connections: [
+                    { from: 'node_0', to: 'node_1', fromPort: '0', toPort: '0' },
+                    { from: 'node_1', to: 'node_2', fromPort: '0', toPort: '0' }
+                ]
+            },
+            'simple-automation': {
+                name: 'Simple Automation Template',
+                nodes: [
+                    { id: 'node_0', type: 'trigger-manual', x: 100, y: 150, width: 120, height: 60, label: 'Manual Start', icon: '▶️', inputs: 0, outputs: 1, config: {} },
+                    { id: 'node_1', type: 'dbus-method', x: 300, y: 150, width: 120, height: 60, label: 'Method Call', icon: '🔧', inputs: 1, outputs: 1, config: { service: 'org.freedesktop.systemd1', method: 'ListUnits', params: '{}' } },
+                    { id: 'node_2', type: 'output-notification', x: 500, y: 150, width: 120, height: 60, label: 'Notification', icon: '🔔', inputs: 1, outputs: 0, config: { title: 'Workflow Complete', message: 'Automation finished' } }
+                ],
+                connections: [
+                    { from: 'node_0', to: 'node_1', fromPort: '0', toPort: '0' },
+                    { from: 'node_1', to: 'node_2', fromPort: '0', toPort: '0' }
+                ]
+            }
+        };
+
+        if (!templates[templateName]) {
+            this.showToast('Template not found', 'error');
+            return;
+        }
+
+        const template = templates[templateName];
+        this.workflowNodes = template.nodes;
+        this.workflowConnections = template.connections;
+        this.nodeIdCounter = template.nodes.length;
+        this.renderWorkflowCanvas();
+        this.showToast(`Template "${template.name}" loaded`, 'success');
         document.getElementById('canvas-hint').style.display = 'none';
         document.getElementById('btn-execute-workflow').disabled = false;
     }
