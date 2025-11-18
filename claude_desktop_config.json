@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "operation-dbus": {
+      "command": "node",
+      "args": ["/git/operation-dbus/mcp-server-stdio.js"]
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/git", "/home/jeremy"]
+    },
+    "memory": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"]
+    }
+  }
+}
