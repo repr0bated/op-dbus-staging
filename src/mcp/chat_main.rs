@@ -153,18 +153,7 @@ async fn main() -> Result<()> {
     let app = Router::new()
         // WebSocket endpoint for chat
         .route("/ws", get(websocket_handler))
-        // Serve static files
-        .route(
-            "/",
-            get(|| async { axum::response::Redirect::permanent("/chat.html") }),
-        )
-        .nest_service("/chat.html", ServeFile::new(web_dir.join("chat.html")))
-        .nest_service("/chat.js", ServeFile::new(web_dir.join("chat.js")))
-        .nest_service(
-            "/chat-styles.css",
-            ServeFile::new(web_dir.join("chat-styles.css")),
-        )
-        // Fallback to web directory for other static assets
+        // Serve web directory - handles all static files including HTML, CSS, JS
         .nest_service("/", ServeDir::new(&web_dir))
         // Add tracing
         .layer(TraceLayer::new_for_http())

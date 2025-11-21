@@ -1,182 +1,103 @@
-# op-dbus Deployment Checklist
+# Deployment Guide - op-dbus with Unified Introspection
 
-## Pre-Deployment
+## Overview
 
-- [ ] Review system current state
-  ```bash
-  ovs-vsctl show
-  ip addr show
-  ip route show
-  systemctl status openvswitch-switch
-  ```
+This guide explains how to deploy the latest op-dbus with:
+- ✅ Unified introspection (single query point for all capabilities)
+- ✅ Rust-based MCP chat server (replaced Node.js)
+- ✅ Plugin-derived tools (systemd, network, lxc, keyring, etc.)
+- ✅ Workflow integration (code_review, test_generation, deployment)
 
-- [ ] Backup current network config
-  ```bash
-  cp /etc/network/interfaces /etc/network/interfaces.backup
-  ovs-vsctl show > /tmp/ovs-backup.txt
-  ip addr > /tmp/ip-backup.txt
-  ip route > /tmp/route-backup.txt
-  ```
+## What's Changed
 
-## Build & Install
+**REMOVED:**
+- ❌ Node.js chat-server.js
+- ❌ JavaScript-based chat
 
-- [ ] Build binary
-  ```bash
-  cd /git/op-dbus
-  cargo build --release
-  ```
+**ADDED:**
+- ✅ Rust MCP chat server (mcp-chat binary)
+- ✅ Unified ToolRegistry.get_introspection() endpoint
+- ✅ 21+ plugin-derived tools in single introspection
 
-- [ ] Verify binary exists
-  ```bash
-  ls -lh target/release/op-dbus
-  ./target/release/op-dbus --version
-  ```
+## Quick Deploy
 
-- [ ] Install system-wide
-  ```bash
-  sudo ./install.sh
-  ```
+```bash
+cd /home/jeremy/op-dbus-staging
+./deploy.sh
+```
 
-- [ ] Verify installation
-  ```bash
-  which op-dbus
-  op-dbus --version
-  ```
+## Manual Installation
+
+```bash
+# Build release binaries
+cargo build --release
+
+# Copy to ~/.cargo/bin
+cp target/release/op-dbus ~/.cargo/bin/
+cp target/release/mcp-chat ~/.cargo/bin/
+
+# Install systemd service
+sudo cp systemd/mcp-chat-server.service /etc/systemd/system/
+sudo systemctl daemon-reload
+```
+
+## Running
+
+### Direct Execution
+```bash
+mcp-chat
+# Opens http://localhost:8080
+```
+
+### Via Systemd
+```bash
+sudo systemctl start mcp-chat-server
+sudo systemctl status mcp-chat-server
+journalctl -u mcp-chat-server -f
+```
 
 ## Configuration
 
-- [ ] Edit state file with YOUR network config
-  ```bash
-  sudo nano /etc/op-dbus/state.json
-  ```
+### Enable AI (Optional)
+```bash
+export OLLAMA_API_KEY=your-api-key
+export OLLAMA_DEFAULT_MODEL=mistral
+```
 
-- [ ] Verify JSON syntax
-  ```bash
-  jq . /etc/op-dbus/state.json
-  ```
+## Verification
 
-## Safe Testing (READ-ONLY)
+```bash
+# Check binaries installed
+which op-dbus
+which mcp-chat
 
-- [ ] Test query all
-  ```bash
-  sudo op-dbus query
-  ```
+# Test server
+curl http://localhost:8080
+```
 
-- [ ] Test query network
-  ```bash
-  sudo op-dbus query --plugin net
-  ```
+## Access
 
-- [ ] Test diff (what would change)
-  ```bash
-  sudo op-dbus diff /etc/op-dbus/state.json
-  ```
+- **Local**: http://localhost:8080
+- **Network**: http://100.104.70.1:8080 (Netmaker)
 
-- [ ] Review diff output carefully!
-  - Does it match what you expect?
-  - Are the IP addresses correct?
-  - Is the gateway correct?
-  - Are the interfaces correct?
+## Troubleshooting
 
-## Apply State (MAKES CHANGES!)
+```bash
+# Check if port is in use
+ss -tlnp | grep 8080
 
-⚠️ **WARNING: Network changes can cause 20-minute downtime if wrong!**
+# View full logs
+journalctl -u mcp-chat-server -n 100
 
-- [ ] Ensure you have console/IPMI access (in case network breaks)
+# Restart service
+sudo systemctl restart mcp-chat-server
+```
 
-- [ ] Apply state manually (DO NOT use systemd yet)
-  ```bash
-  sudo op-dbus apply /etc/op-dbus/state.json
-  ```
+## Architecture
 
-- [ ] Verify network still works
-  ```bash
-  ping -c 3 8.8.8.8
-  ping -c 3 google.com
-  ```
+All system capabilities are now accessible via single unified introspection:
+- Native tools
+- Plugin-derived tools (systemd, network, lxc, etc.)
+- Workflows (code_review, test_generation, deployment)
 
-- [ ] Verify OVS bridge
-  ```bash
-  ovs-vsctl show
-  ip addr show ovsbr0
-  ip route show
-  ```
-
-- [ ] Test from another machine
-  ```bash
-  ssh user@your-server-ip
-  ```
-
-## Enable Service (After Manual Test Success)
-
-- [ ] Enable service
-  ```bash
-  sudo systemctl enable op-dbus
-  ```
-
-- [ ] Start service
-  ```bash
-  sudo systemctl start op-dbus
-  ```
-
-- [ ] Check status
-  ```bash
-  sudo systemctl status op-dbus
-  ```
-
-- [ ] Watch logs
-  ```bash
-  sudo journalctl -u op-dbus -f
-  ```
-
-## Post-Deployment Verification
-
-- [ ] Network connectivity
-  ```bash
-  ping -c 3 8.8.8.8
-  curl -I https://google.com
-  ```
-
-- [ ] OVS state matches desired
-  ```bash
-  sudo op-dbus query --plugin net
-  ```
-
-- [ ] Service survives reboot
-  ```bash
-  # Optional: sudo reboot
-  # After reboot:
-  sudo systemctl status op-dbus
-  ```
-
-## Rollback (If Things Go Wrong)
-
-- [ ] Stop service
-  ```bash
-  sudo systemctl stop op-dbus
-  sudo systemctl disable op-dbus
-  ```
-
-- [ ] Restore backup
-  ```bash
-  sudo cp /etc/network/interfaces.backup /etc/network/interfaces
-  sudo systemctl restart networking
-  ```
-
-- [ ] Manual OVS restore
-  ```bash
-  # Recreate bridge manually if needed
-  sudo ovs-vsctl add-br ovsbr0
-  sudo ovs-vsctl add-port ovsbr0 ens1
-  sudo ip addr add 80.209.240.244/25 dev ovsbr0
-  sudo ip link set ovsbr0 up
-  sudo ip route add default via 80.209.240.129
-  ```
-
-## Success Criteria
-
-✅ Service running: `systemctl status op-dbus`
-✅ Network working: `ping 8.8.8.8`
-✅ State matches: `op-dbus query` == desired
-✅ Logs clean: `journalctl -u op-dbus`
-✅ No errors in journal
+See `INTROSPECTION_CONSOLIDATION.md` for full architecture details.
