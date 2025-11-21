@@ -19,9 +19,10 @@ SyslogIdentifier=mcp-chat
 Environment="RUST_LOG=info"
 Environment="RUST_BACKTRACE=1"
 
-# Uncomment and set your Ollama API key for AI chat
-# Environment="OLLAMA_API_KEY=your-api-key-here"
-# Environment="OLLAMA_DEFAULT_MODEL=mistral"
+# AI Configuration - REQUIRED (AI is the brain of the system)
+# Get your API key from: https://ollama.com
+Environment="OLLAMA_API_KEY=your-api-key-here"
+Environment="OLLAMA_DEFAULT_MODEL=qwen"
 
 # Resource limits
 MemoryLimit=2G

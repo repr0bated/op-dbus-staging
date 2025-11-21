@@ -96,13 +96,13 @@ struct SystemContext {
     tool_count: usize,
 }
 
-// Chat server state with unified introspection support
+// Chat server state with unified introspection support and mandatory AI
 // This consolidates tool/plugin introspection into a single registry
 // Note: We avoid IntrospectionCache here to prevent Send+Sync issues with rusqlite
 // The cache is designed for CLI usage, not async web servers
 #[derive(Clone)]
 struct ChatState {
-    ollama_client: Option<Arc<OllamaClient>>,
+    ollama_client: Arc<OllamaClient>,  // Mandatory - AI is the brain
     conversations: Arc<RwLock<HashMap<String, Vec<ChatMessage>>>>,
     // Cached unified introspection data from plugins and workflows
     // This replaces the need for IntrospectionCache in web context
@@ -116,15 +116,32 @@ async fn main() -> Result<()> {
 
     info!("Starting AI Chat Server...");
 
-    // Create Ollama client for AI
-    let ollama_client = if let Ok(api_key) = std::env::var("OLLAMA_API_KEY") {
-        info!("Using Ollama Cloud API with AI");
-        Some(Arc::new(OllamaClient::cloud(api_key)))
-    } else {
-        info!("OLLAMA_API_KEY not set. Set your Ollama API key to enable AI chat.");
-        info!("Get your API key from: https://ollama.com");
-        None
-    };
+    // AI is mandatory - the brain of the system
+    let api_key = std::env::var("OLLAMA_API_KEY")
+        .expect("❌ OLLAMA_API_KEY required - AI is the core of this system\n\
+                 Get your API key from: https://ollama.com");
+
+    let model = std::env::var("OLLAMA_DEFAULT_MODEL")
+        .unwrap_or_else(|_| "mistral".to_string());
+
+    info!("✅ AI Enabled - Using model: {}", model);
+
+    // Initialize Ollama client
+    let ollama_client = Arc::new(
+        OllamaClient::cloud(api_key)
+            .with_default_model(model.clone())
+    );
+
+    // Test AI connection
+    match ollama_client.health_check().await {
+        Ok(true) => info!("✅ Connected to Ollama"),
+        Ok(false) => info!("⚠️  Using cloud API (no local Ollama)"),
+        Err(e) => {
+            eprintln!("❌ Ollama connection failed: {}", e);
+            eprintln!("Make sure OLLAMA_API_KEY is valid and set OLLAMA_DEFAULT_MODEL");
+            std::process::exit(1);
+        }
+    }
 
     // Build unified tool introspection
     // This consolidates plugins (via PluginToolBridge) and native tools into one registry
@@ -225,12 +242,13 @@ async fn handle_socket(socket: WebSocket, state: ChatState) {
                             let _ = sender.send(Message::Text(response)).await;
                         }
 
-                        // Generate AI response if Ollama client is available
-                        if let Some(ollama_client) = &state.ollama_client {
+                        // Generate AI response using the AI brain
+                        {
                             // Build context-aware prompt with system information
                             let enhanced_prompt = build_enhanced_prompt(&content, &system_context);
+                            let model = state.ollama_client.default_model();
 
-                            match ollama_client.simple_chat("mistral", &enhanced_prompt).await {
+                            match state.ollama_client.simple_chat(&model, &enhanced_prompt).await {
                                 Ok(ai_response) => {
                                     let ai_msg = ChatMessage::Assistant {
                                         content: ai_response,
@@ -269,19 +287,6 @@ async fn handle_socket(socket: WebSocket, state: ChatState) {
                                         let _ = sender.send(Message::Text(response)).await;
                                     }
                                 }
-                            }
-                        } else {
-                            // No Ollama client - send error message
-                            let error_msg = ChatMessage::Error {
-                                content: "AI is not available. Please set OLLAMA_API_KEY environment variable.".to_string(),
-                                timestamp: std::time::SystemTime::now()
-                                    .duration_since(std::time::SystemTime::UNIX_EPOCH)
-                                    .unwrap()
-                                    .as_secs(),
-                            };
-
-                            if let Ok(response) = serde_json::to_string(&error_msg) {
-                                let _ = sender.send(Message::Text(response)).await;
                             }
                         }
                     }
