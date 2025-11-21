@@ -148,7 +148,8 @@ impl StatePlugin for KeyringPlugin {
     }
 
     fn unavailable_reason(&self) -> String {
-        "GNOME Keyring / KDE Wallet (org.freedesktop.secrets) service not available on session bus".to_string()
+        "GNOME Keyring / KDE Wallet (org.freedesktop.secrets) service not available on session bus"
+            .to_string()
     }
 
     async fn query_current_state(&self) -> Result<Value> {
@@ -165,7 +166,9 @@ impl StatePlugin for KeyringPlugin {
 
     async fn apply_state(&self, _diff: &StateDiff) -> Result<ApplyResult> {
         // Keyring operations are typically interactive and should not be automated
-        Err(anyhow::anyhow!("Keyring apply operations are not supported for security reasons"))
+        Err(anyhow::anyhow!(
+            "Keyring apply operations are not supported for security reasons"
+        ))
     }
 
     async fn calculate_diff(&self, current: &Value, desired: &Value) -> Result<StateDiff> {
@@ -213,7 +216,9 @@ impl StatePlugin for KeyringPlugin {
 
     async fn rollback(&self, _checkpoint: &Checkpoint) -> Result<()> {
         // Keyring rollback is not supported for security reasons
-        Err(anyhow::anyhow!("Keyring rollback is not supported for security reasons"))
+        Err(anyhow::anyhow!(
+            "Keyring rollback is not supported for security reasons"
+        ))
     }
 }
 

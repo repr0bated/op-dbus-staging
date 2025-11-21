@@ -1,4 +1,6 @@
 // State manager orchestrator - coordinates plugins and provides atomic operations
+// ULTIMATE AUTHORITY: This plugin system is the sole authoritative source for network configuration
+// All external systems (NetworkManager, systemd-networkd, etc.) are subordinate data sources only
 // Note: Ledger functionality has been replaced with streaming blockchain
 use crate::state::plugin::{ApplyResult, Checkpoint, StateDiff, StatePlugin};
 use anyhow::{anyhow, Result};
@@ -54,12 +56,13 @@ impl StateManager {
     pub fn new() -> Self {
         Self {
             plugins: Arc::new(RwLock::new(HashMap::new())),
-            workflows: std::sync::Mutex::new(crate::state::plugin_workflow::PluginWorkflowManager::new()),
+            workflows: std::sync::Mutex::new(
+                crate::state::plugin_workflow::PluginWorkflowManager::new(),
+            ),
             #[cfg(feature = "streaming-blockchain")]
             blockchain_sender: None,
         }
     }
-
 
     /// Enable blockchain footprints by providing a sender to a StreamingBlockchain receiver
     #[cfg(feature = "streaming-blockchain")]
@@ -117,7 +120,11 @@ impl StateManager {
 
     /// Execute a workflow
     #[allow(dead_code)]
-    pub async fn execute_workflow(&self, _workflow_name: &str, _context: pocketflow_rs::Context) -> Result<Value> {
+    pub async fn execute_workflow(
+        &self,
+        _workflow_name: &str,
+        _context: pocketflow_rs::Context,
+    ) -> Result<Value> {
         #[allow(clippy::await_holding_lock)]
         let _workflows = self.workflows.lock().unwrap();
         // TODO: Implement actual workflow execution

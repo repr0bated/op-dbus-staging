@@ -2,7 +2,7 @@
 //! Uses the existing chat_server.rs infrastructure
 //!
 //! Run with: OLLAMA_API_KEY=your-key OLLAMA_DEFAULT_MODEL=model-name cargo run --bin mcp_chat
-//! Example models: deepseek-v3.1:671b-cloud, llama2, mistral, etc.
+//! Example models: llama2, mistral, qwen, gemma, etc.
 
 use axum::{response::Redirect, routing::get, Router};
 use std::net::SocketAddr;
@@ -13,8 +13,9 @@ use tower_http::services::ServeDir;
 // Import from the existing MCP modules
 use op_dbus::mcp::agent_registry::AgentRegistry;
 use op_dbus::mcp::chat_server::{create_chat_router, ChatServerState};
+use op_dbus::mcp::introspection_cache::IntrospectionCache;
 use op_dbus::mcp::ollama::OllamaClient;
-use op_dbus::mcp::tool_registry::ToolRegistry;
+use op_dbus::mcp::tool_registry::{ToolRegistry, ToolRegistryService};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -26,8 +27,7 @@ async fn main() -> anyhow::Result<()> {
     let api_key = std::env::var("OLLAMA_API_KEY")
         .expect("OLLAMA_API_KEY must be set. Run: export OLLAMA_API_KEY=your-key");
 
-    let model = std::env::var("OLLAMA_DEFAULT_MODEL")
-        .unwrap_or_else(|_| "llama2".to_string());
+    let model = std::env::var("OLLAMA_DEFAULT_MODEL").unwrap_or_else(|_| "llama2".to_string());
 
     println!("✅ OLLAMA_API_KEY loaded");
     println!("✅ Using model: {}", model);
@@ -53,12 +53,30 @@ async fn main() -> anyhow::Result<()> {
         .await
         .expect("Failed to register introspection tools");
 
-    println!("✅ {} tools registered", tool_registry.list_tools().await.len());
-    println!("✅ {} agent types available", agent_registry.list_agent_types().await.len());
+    // Initialize introspection cache
+    println!("💾 Initializing introspection cache...");
+    let cache_path = PathBuf::from("/var/cache/dbus-introspection.db");
+    let introspection_cache = Arc::new(IntrospectionCache::new(&cache_path)?);
+
+    // Initialize tool registry service
+    println!("🔧 Initializing tool registry service...");
+    let registry_service = Arc::new(ToolRegistryService::new(
+        tool_registry.clone(),
+    ));
+    // Note: introspection_cache is used separately, not through service
+
+    println!(
+        "✅ {} tools registered",
+        tool_registry.list_tools().await.len()
+    );
+    println!(
+        "✅ {} agent types available",
+        agent_registry.list_agent_types().await.len()
+    );
 
     // Create chat server state with Ollama client
-    let chat_state = ChatServerState::new(tool_registry, agent_registry)
-        .with_ollama_client(ollama_client);
+    let chat_state =
+        ChatServerState::new(tool_registry, agent_registry, registry_service).with_ollama_client(ollama_client);
 
     println!("✅ AI integrated");
 

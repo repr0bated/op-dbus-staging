@@ -1,11 +1,13 @@
 use serde::Deserialize;
 use std::process::Command;
 use uuid::Uuid;
-use zbus::{interface, connection::Builder, object_server::SignalEmitter};
+use zbus::{connection::Builder, interface, object_server::SignalEmitter};
 
 // Security configuration
 const ALLOWED_DIRECTORIES: &[&str] = &["/tmp", "/home", "/opt"];
-const FORBIDDEN_CHARS: &[char] = &['$', '`', ';', '&', '|', '>', '<', '(', ')', '{', '}', '\n', '\r'];
+const FORBIDDEN_CHARS: &[char] = &[
+    '$', '`', ';', '&', '|', '>', '<', '(', ')', '{', '}', '\n', '\r',
+];
 const MAX_PATH_LENGTH: usize = 4096;
 
 #[derive(Debug, Deserialize)]
@@ -79,7 +81,8 @@ impl CppProAgent {
 
     /// Signal emitted when task completes
     #[zbus(signal)]
-    async fn task_completed(signal_emitter: &SignalEmitter<'_>, result: String) -> zbus::Result<()>;
+    async fn task_completed(signal_emitter: &SignalEmitter<'_>, result: String)
+        -> zbus::Result<()>;
 }
 
 impl CppProAgent {
@@ -139,7 +142,10 @@ impl CppProAgent {
 
     fn gpp_compile(&self, path: Option<&str>, flags: Option<&str>) -> Result<String, String> {
         let mut cmd = Command::new("g++");
-        cmd.arg("-std=c++17").arg("-Wall").arg("-Wextra").arg("-Werror");
+        cmd.arg("-std=c++17")
+            .arg("-Wall")
+            .arg("-Wextra")
+            .arg("-Werror");
 
         if let Some(f) = flags {
             self.validate_flags(f)?;
@@ -156,15 +162,23 @@ impl CppProAgent {
             return Err("Path required for compilation".to_string());
         }
 
-        let output = cmd.output().map_err(|e| format!("Failed to run g++: {}", e))?;
+        let output = cmd
+            .output()
+            .map_err(|e| format!("Failed to run g++: {}", e))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
 
         if output.status.success() {
-            Ok(format!("Compilation succeeded\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Compilation succeeded\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         } else {
-            Ok(format!("Compilation failed\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Compilation failed\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         }
     }
 
@@ -179,13 +193,18 @@ impl CppProAgent {
             return Err("Path required for valgrind".to_string());
         }
 
-        let output = cmd.output().map_err(|e| format!("Failed to run valgrind: {}", e))?;
+        let output = cmd
+            .output()
+            .map_err(|e| format!("Failed to run valgrind: {}", e))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
 
         // Valgrind always returns non-zero, so don't check success
-        Ok(format!("Valgrind output\nstdout: {}\nstderr: {}", stdout, stderr))
+        Ok(format!(
+            "Valgrind output\nstdout: {}\nstderr: {}",
+            stdout, stderr
+        ))
     }
 
     fn clang_tidy(&self, path: Option<&str>) -> Result<String, String> {
@@ -198,15 +217,23 @@ impl CppProAgent {
             return Err("Path required for clang-tidy".to_string());
         }
 
-        let output = cmd.output().map_err(|e| format!("Failed to run clang-tidy: {}", e))?;
+        let output = cmd
+            .output()
+            .map_err(|e| format!("Failed to run clang-tidy: {}", e))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
 
         if output.status.success() {
-            Ok(format!("Clang-tidy passed\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Clang-tidy passed\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         } else {
-            Ok(format!("Clang-tidy found issues\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Clang-tidy found issues\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         }
     }
 
@@ -218,22 +245,32 @@ impl CppProAgent {
             .map_err(|e| format!("Failed to create build directory: {}", e))?;
 
         let mut cmd = Command::new("cmake");
-        cmd.arg("-S").arg(path.unwrap_or(".")).arg("-B").arg(build_dir);
+        cmd.arg("-S")
+            .arg(path.unwrap_or("."))
+            .arg("-B")
+            .arg(build_dir);
 
-        let output = cmd.output().map_err(|e| format!("Failed to run cmake: {}", e))?;
+        let output = cmd
+            .output()
+            .map_err(|e| format!("Failed to run cmake: {}", e))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
 
         if !output.status.success() {
-            return Ok(format!("CMake configure failed\nstdout: {}\nstderr: {}", stdout, stderr));
+            return Ok(format!(
+                "CMake configure failed\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ));
         }
 
         // Now build
         let mut build_cmd = Command::new("cmake");
         build_cmd.arg("--build").arg(build_dir);
 
-        let build_output = build_cmd.output().map_err(|e| format!("Failed to build: {}", e))?;
+        let build_output = build_cmd
+            .output()
+            .map_err(|e| format!("Failed to build: {}", e))?;
 
         let build_stdout = String::from_utf8_lossy(&build_output.stdout);
         let build_stderr = String::from_utf8_lossy(&build_output.stderr);
@@ -253,10 +290,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let agent_id = if args.len() > 1 {
         args[1].clone()
     } else {
-        format!(
-            "cpp-pro-{}",
-            Uuid::new_v4().to_string()[..8].to_string()
-        )
+        format!("cpp-pro-{}", Uuid::new_v4().to_string()[..8].to_string())
     };
 
     println!("Starting C++ Pro Agent: {}", agent_id);

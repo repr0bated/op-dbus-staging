@@ -52,14 +52,14 @@ impl OptimizedBlockchain {
         {
             match NumaTopology::detect() {
                 Ok(topology) => {
-                    info!(
-                        "NUMA topology detected: {} nodes",
-                        topology.node_count()
-                    );
+                    info!("NUMA topology detected: {} nodes", topology.node_count());
                     *numa_topology.write().await = Some(topology);
                 }
                 Err(e) => {
-                    warn!("NUMA topology detection failed: {} (continuing without NUMA)", e);
+                    warn!(
+                        "NUMA topology detection failed: {} (continuing without NUMA)",
+                        e
+                    );
                 }
             }
         }
@@ -98,11 +98,7 @@ impl OptimizedBlockchain {
     }
 
     /// Cache blockchain block in BTRFS cache
-    async fn cache_block(
-        &self,
-        block_hash: String,
-        footprint: &PluginFootprint,
-    ) -> Result<()> {
+    async fn cache_block(&self, block_hash: String, footprint: &PluginFootprint) -> Result<()> {
         // Serialize footprint for caching
         let block_data = serde_json::json!({
             "plugin_id": footprint.plugin_id,
@@ -117,19 +113,16 @@ impl OptimizedBlockchain {
         // Use cache's embedding storage for block data
         // (blocks are stored as JSON, not vectors, but we use the same infrastructure)
         let block_key = format!("blockchain:{}", block_hash);
-        
+
         // Store as JSON in cache (BTRFS will compress it)
         let cache_dir = self.cache.cache_dir();
         let blocks_dir = cache_dir.join("blocks").join("by-hash");
         tokio::fs::create_dir_all(&blocks_dir).await?;
 
         let block_file = blocks_dir.join(format!("{}.json", block_hash));
-        tokio::fs::write(
-            &block_file,
-            serde_json::to_string_pretty(&block_data)?,
-        )
-        .await
-        .context("Failed to write block to cache")?;
+        tokio::fs::write(&block_file, serde_json::to_string_pretty(&block_data)?)
+            .await
+            .context("Failed to write block to cache")?;
 
         debug!("Cached blockchain block {} in BTRFS cache", block_hash);
         Ok(())
@@ -176,14 +169,8 @@ impl OptimizedBlockchain {
                 .as_str()
                 .ok_or_else(|| anyhow::anyhow!("Missing content_hash"))?
                 .to_string(),
-            metadata: serde_json::from_value(
-                block_data["metadata"]
-                    .clone(),
-            )?,
-            vector_features: serde_json::from_value(
-                block_data["vector_features"]
-                    .clone(),
-            )?,
+            metadata: serde_json::from_value(block_data["metadata"].clone())?,
+            vector_features: serde_json::from_value(block_data["vector_features"].clone())?,
         };
 
         Ok(Some(footprint))
@@ -195,7 +182,7 @@ impl OptimizedBlockchain {
         if let Some(ref topology) = *numa {
             // Get optimal NUMA node
             let optimal_node = topology.optimal_node();
-            
+
             if let Some(node) = topology.get_node(optimal_node) {
                 debug!(
                     "Applying NUMA affinity: node {} ({} CPUs, {} MB free) for {}",
@@ -257,7 +244,10 @@ impl OptimizedBlockchain {
             .parent()
             .ok_or_else(|| anyhow::anyhow!("No parent path for blockchain"))?
             .join("snapshots")
-            .join(format!("blockchain-{}", chrono::Utc::now().format("%Y%m%d-%H%M%S")));
+            .join(format!(
+                "blockchain-{}",
+                chrono::Utc::now().format("%Y%m%d-%H%M%S")
+            ));
 
         // Use btrfs snapshot command
         let output = tokio::process::Command::new("btrfs")
@@ -270,13 +260,19 @@ impl OptimizedBlockchain {
 
         if output.status.success() {
             snapshots.push(blockchain_snapshot);
-            info!("Created blockchain snapshot: {}", snapshots.last().unwrap().display());
+            info!(
+                "Created blockchain snapshot: {}",
+                snapshots.last().unwrap().display()
+            );
         }
 
         // Snapshot cache
         let cache_snapshot = self.cache.create_snapshot().await?;
         snapshots.push(cache_snapshot);
-        info!("Created cache snapshot: {}", snapshots.last().unwrap().display());
+        info!(
+            "Created cache snapshot: {}",
+            snapshots.last().unwrap().display()
+        );
 
         Ok(snapshots)
     }
@@ -286,5 +282,3 @@ impl OptimizedBlockchain {
         self.cache.stats()
     }
 }
-
-

@@ -3,7 +3,7 @@
 
 // Include the introspection_parser module inline when compiled as a binary
 #[path = "introspection_parser.rs"]
-mod introspection_parser;
+pub mod introspection_parser;
 
 use introspection_parser::{IntrospectionParser, MethodInfo};
 use serde::{Deserialize, Serialize};

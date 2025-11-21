@@ -258,10 +258,7 @@ impl ResourceRegistry {
 
     /// Scan and load markdown files from /git/agents and /git/commands
     fn scan_markdown_files(&mut self) {
-        let base_dirs = vec![
-            ("/git/agents", "agents"),
-            ("/git/commands", "commands"),
-        ];
+        let base_dirs = vec![("/git/agents", "agents"), ("/git/commands", "commands")];
 
         for (base_path, scheme) in base_dirs {
             if let Ok(files) = Self::find_markdown_files(base_path) {

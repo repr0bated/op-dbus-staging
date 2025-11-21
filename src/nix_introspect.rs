@@ -156,9 +156,7 @@ struct McpAgentInfo {
 
 impl SystemState {
     fn new() -> Result<Self> {
-        let hostname = gethostname::gethostname()
-            .to_string_lossy()
-            .to_string();
+        let hostname = gethostname::gethostname().to_string_lossy().to_string();
 
         Ok(Self {
             hostname,
@@ -187,7 +185,10 @@ impl SystemState {
         if let Some(kernel) = &self.kernel_version {
             config.push_str(&format!("# Kernel: {}\n", kernel));
         }
-        config.push_str(&format!("# Generated at: {}\n", chrono::Local::now().to_rfc3339()));
+        config.push_str(&format!(
+            "# Generated at: {}\n",
+            chrono::Local::now().to_rfc3339()
+        ));
         config.push_str("\n{ config, pkgs, lib, ... }:\n\n");
         config.push_str("{\n");
         config.push_str("  imports = [\n");
@@ -195,7 +196,10 @@ impl SystemState {
         config.push_str("  ];\n\n");
 
         // Hostname
-        config.push_str(&format!("  networking.hostName = \"{}\";\n\n", self.hostname));
+        config.push_str(&format!(
+            "  networking.hostName = \"{}\";\n\n",
+            self.hostname
+        ));
 
         // Operation D-Bus service
         if !self.detected_plugins.is_empty() {
@@ -220,7 +224,8 @@ impl SystemState {
             config.push_str("    agents = [\n");
 
             for agent in &self.mcp_agents {
-                config.push_str(&format!("      \"{}\"  # {}\n",
+                config.push_str(&format!(
+                    "      \"{}\"  # {}\n",
                     agent.name,
                     agent.capabilities.join(", ")
                 ));
@@ -235,11 +240,21 @@ impl SystemState {
             config.push_str("  # Systemd Services (detected as enabled)\n");
             config.push_str("  systemd.services = {\n");
 
-            for unit in self.systemd_units.iter().filter(|u| u.enabled && u.unit_type == "service") {
-                config.push_str(&format!("    \"{}\" = {{\n", unit.name.trim_end_matches(".service")));
+            for unit in self
+                .systemd_units
+                .iter()
+                .filter(|u| u.enabled && u.unit_type == "service")
+            {
+                config.push_str(&format!(
+                    "    \"{}\" = {{\n",
+                    unit.name.trim_end_matches(".service")
+                ));
                 config.push_str("      enable = true;\n");
                 if let Some(desc) = &unit.description {
-                    config.push_str(&format!("      description = \"{}\";\n", desc.replace('"', "\\\"")));
+                    config.push_str(&format!(
+                        "      description = \"{}\";\n",
+                        desc.replace('"', "\\\"")
+                    ));
                 }
                 config.push_str("    };\n");
             }
@@ -261,7 +276,10 @@ impl SystemState {
                         config.push_str("        ipv4.addresses = [\n");
                         for ip in &iface.ip_addresses {
                             if ip.contains('.') {
-                                config.push_str(&format!("          {{ address = \"{}\"; prefixLength = 24; }}\n", ip));
+                                config.push_str(&format!(
+                                    "          {{ address = \"{}\"; prefixLength = 24; }}\n",
+                                    ip
+                                ));
                             }
                         }
                         config.push_str("        ];\n");
@@ -295,10 +313,9 @@ impl SystemState {
 
             config.push_str("  # Detected containers:\n");
             for container in &self.containers {
-                config.push_str(&format!("  #   - {} ({}): {}\n",
-                    container.name,
-                    container.container_type,
-                    container.state
+                config.push_str(&format!(
+                    "  #   - {} ({}): {}\n",
+                    container.name, container.container_type, container.state
                 ));
             }
             config.push_str("\n");
@@ -337,7 +354,9 @@ async fn scan_dbus_services(bus_type: &str) -> Result<Vec<DbusServiceInfo>> {
         debug!("Found service: {}", name);
 
         // Try to introspect the service
-        let interfaces = introspect_service(&connection, &name).await.unwrap_or_default();
+        let interfaces = introspect_service(&connection, &name)
+            .await
+            .unwrap_or_default();
 
         services.push(DbusServiceInfo {
             name: name.to_string(),
@@ -398,15 +417,38 @@ async fn scan_systemd_units() -> Result<Vec<SystemdUnitInfo>> {
         "org.freedesktop.systemd1",
         "/org/freedesktop/systemd1",
         "org.freedesktop.systemd1.Manager",
-    ).await?;
+    )
+    .await?;
 
     // List all units
-    let units: Vec<(String, String, String, String, String, String, zbus::zvariant::OwnedObjectPath, u32, String, zbus::zvariant::OwnedObjectPath)>
-        = proxy.call("ListUnits", &()).await?;
+    let units: Vec<(
+        String,
+        String,
+        String,
+        String,
+        String,
+        String,
+        zbus::zvariant::OwnedObjectPath,
+        u32,
+        String,
+        zbus::zvariant::OwnedObjectPath,
+    )> = proxy.call("ListUnits", &()).await?;
 
     let mut unit_infos = Vec::new();
 
-    for (name, description, load_state, active_state, _sub_state, _following, _unit_path, _job_id, _job_type, _job_path) in units {
+    for (
+        name,
+        description,
+        load_state,
+        active_state,
+        _sub_state,
+        _following,
+        _unit_path,
+        _job_id,
+        _job_type,
+        _job_path,
+    ) in units
+    {
         if load_state == "loaded" {
             // Determine unit type from name
             let unit_type = name.split('.').last().unwrap_or("unknown").to_string();
@@ -499,12 +541,20 @@ async fn get_interface_ips(iface_name: &str) -> Result<Vec<String>> {
     let mut addresses = Vec::new();
 
     // Get link by name
-    let mut links = handle.link().get().match_name(iface_name.to_string()).execute();
+    let mut links = handle
+        .link()
+        .get()
+        .match_name(iface_name.to_string())
+        .execute();
     if let Some(link) = links.try_next().await? {
         let index = link.header.index;
 
         // Get addresses for this link
-        let mut addr_handle = handle.address().get().set_link_index_filter(index).execute();
+        let mut addr_handle = handle
+            .address()
+            .get()
+            .set_link_index_filter(index)
+            .execute();
 
         while let Some(addr) = addr_handle.try_next().await? {
             for nla in addr.attributes {
@@ -523,7 +573,10 @@ fn detect_plugins(services: &[DbusServiceInfo], units: &[SystemdUnitInfo]) -> Ve
     let mut plugins = HashSet::new();
 
     // Check for systemd
-    if services.iter().any(|s| s.name == "org.freedesktop.systemd1") {
+    if services
+        .iter()
+        .any(|s| s.name == "org.freedesktop.systemd1")
+    {
         plugins.insert("systemd".to_string());
     }
 
@@ -533,12 +586,18 @@ fn detect_plugins(services: &[DbusServiceInfo], units: &[SystemdUnitInfo]) -> Ve
     }
 
     // Check for networkd
-    if services.iter().any(|s| s.name == "org.freedesktop.network1") {
+    if services
+        .iter()
+        .any(|s| s.name == "org.freedesktop.network1")
+    {
         plugins.insert("network".to_string());
     }
 
     // Check for resolved (DNS)
-    if services.iter().any(|s| s.name == "org.freedesktop.resolve1") {
+    if services
+        .iter()
+        .any(|s| s.name == "org.freedesktop.resolve1")
+    {
         plugins.insert("dnsresolver".to_string());
     }
 
@@ -571,17 +630,26 @@ fn detect_mcp_agents() -> Vec<McpAgentInfo> {
         McpAgentInfo {
             name: "file".to_string(),
             binary: "dbus-agent-file".to_string(),
-            capabilities: vec!["file operations".to_string(), "filesystem access".to_string()],
+            capabilities: vec![
+                "file operations".to_string(),
+                "filesystem access".to_string(),
+            ],
         },
         McpAgentInfo {
             name: "network".to_string(),
             binary: "dbus-agent-network".to_string(),
-            capabilities: vec!["network management".to_string(), "interface control".to_string()],
+            capabilities: vec![
+                "network management".to_string(),
+                "interface control".to_string(),
+            ],
         },
         McpAgentInfo {
             name: "monitor".to_string(),
             binary: "dbus-agent-monitor".to_string(),
-            capabilities: vec!["system monitoring".to_string(), "metrics collection".to_string()],
+            capabilities: vec![
+                "system monitoring".to_string(),
+                "metrics collection".to_string(),
+            ],
         },
     ]
 }
@@ -601,11 +669,12 @@ async fn scan_containers() -> Result<Vec<ContainerInfo>> {
                     let name = entry.file_name().to_string_lossy().to_string();
 
                     // Try to determine state (running/stopped)
-                    let state = if std::path::Path::new(&format!("/sys/fs/cgroup/lxc/{}", name)).exists() {
-                        "running"
-                    } else {
-                        "stopped"
-                    };
+                    let state =
+                        if std::path::Path::new(&format!("/sys/fs/cgroup/lxc/{}", name)).exists() {
+                            "running"
+                        } else {
+                            "stopped"
+                        };
 
                     containers.push(ContainerInfo {
                         name: name.clone(),
@@ -761,8 +830,7 @@ async fn main() -> Result<()> {
             let output_content = match format.as_str() {
                 "nix" => state.to_nix_config(),
                 "json" => serde_json::to_string_pretty(&state)?,
-                "toml" => toml::to_string(&state)
-                    .context("Failed to serialize to TOML")?,
+                "toml" => toml::to_string(&state).context("Failed to serialize to TOML")?,
                 _ => return Err(anyhow::anyhow!("Unsupported format: {}", format)),
             };
 
@@ -773,9 +841,16 @@ async fn main() -> Result<()> {
             info!("✓ Configuration written to {}", output.display());
             info!("  - {} D-Bus services detected", state.dbus_services.len());
             info!("  - {} systemd units found", state.systemd_units.len());
-            info!("  - {} network interfaces discovered", state.network_interfaces.len());
+            info!(
+                "  - {} network interfaces discovered",
+                state.network_interfaces.len()
+            );
             info!("  - {} containers detected", state.containers.len());
-            info!("  - {} plugins detected: {}", state.detected_plugins.len(), state.detected_plugins.join(", "));
+            info!(
+                "  - {} plugins detected: {}",
+                state.detected_plugins.len(),
+                state.detected_plugins.join(", ")
+            );
         }
 
         Commands::ListServices { bus, filter } => {
@@ -807,7 +882,12 @@ async fn main() -> Result<()> {
             }
         }
 
-        Commands::Inspect { service, path, bus, format } => {
+        Commands::Inspect {
+            service,
+            path,
+            bus,
+            format,
+        } => {
             info!("Introspecting service: {} at path: {}", service, path);
 
             let connection = match bus.as_str() {

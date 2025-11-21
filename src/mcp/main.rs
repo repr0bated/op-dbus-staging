@@ -1,23 +1,36 @@
 //! Refactored MCP server using tool registry for loose coupling
 
-#[path = "../mcp/tool_registry.rs"]
-mod tool_registry;
-#[path = "../mcp/resources_enhanced.rs"]
-mod resources;
+#[path = "../mcp/introspection_cache.rs"]
+mod introspection_cache;
 #[path = "../native/mod.rs"]
 mod native;
+#[path = "../mcp/resources_enhanced.rs"]
+mod resources;
+#[path = "../mcp/tool_registry.rs"]
+mod tool_registry;
+#[path = "../mcp/tools/agents.rs"]
+mod agents;
+#[path = "../mcp/tools/dbus_granular.rs"]
+mod dbus_granular;
+#[path = "../mcp/introspection_tools.rs"]
+mod introspection_tools;
 
 use anyhow::{Context, Result};
+use reqwest;
+use resources::ResourceRegistry;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::io::{self, BufRead, Write};
 use std::sync::Arc;
 use tool_registry::{
-    AuditMiddleware, DynamicToolBuilder, LoggingMiddleware, Tool, ToolContent, ToolRegistry,
-    ToolResult,
+    AuditMiddleware, DynamicToolBuilder, LoggingMiddleware, SecurityMiddleware, Tool, ToolContent, ToolRegistry,
+    ToolRegistryService, ToolResult,
 };
-use resources::ResourceRegistry;
 use zbus::Connection;
+
+// Import introspection components
+use introspection_cache::IntrospectionCache;
+use std::path::PathBuf;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct McpRequest {
@@ -45,9 +58,9 @@ struct McpError {
     data: Option<Value>,
 }
 
-/// Refactored MCP server with tool registry and embedded resources
+/// Refactored MCP server with tool registry service and embedded resources
 struct McpServer {
-    registry: Arc<ToolRegistry>,
+    registry_service: Arc<ToolRegistryService>,
     resources: Arc<ResourceRegistry>,
     orchestrator: Option<zbus::Proxy<'static>>,
 }
@@ -65,15 +78,33 @@ impl McpServer {
             .add_middleware(Box::new(AuditMiddleware::new()))
             .await;
 
+        // Add security middleware (must be added last to run after other middleware)
+        registry.add_middleware(Box::new(SecurityMiddleware::new())).await;
+
         // Register default tools
         Self::register_default_tools(&registry).await?;
 
         // Create resource registry with embedded documentation
         let resources = Arc::new(ResourceRegistry::new());
-        eprintln!("Loaded {} embedded resources", resources.list_resources().len());
+        eprintln!(
+            "Loaded {} embedded resources",
+            resources.list_resources().len()
+        );
 
-        // Try to connect to orchestrator
-        let orchestrator = match Connection::session().await {
+        // Initialize D-Bus introspection cache
+        let cache_path = PathBuf::from("/var/cache/dbus-introspection.db");
+        let cache =
+            IntrospectionCache::new(&cache_path).context("Failed to create introspection cache")?;
+        eprintln!("✅ D-Bus introspection cache ready at {:?}", cache_path);
+
+        // Create Tool Registry Service (introspection cache is used separately, not via service)
+        let registry_service = Arc::new(ToolRegistryService::new(registry));
+        eprintln!("✅ Tool Registry Service initialized");
+
+        // Note: introspection cache is available as 'cache' above for direct use
+
+        // Try to connect to orchestrator on system bus
+        let orchestrator = match Connection::system().await {
             Ok(conn) => match zbus::Proxy::new(
                 &conn,
                 "org.dbusmcp.Orchestrator",
@@ -83,7 +114,7 @@ impl McpServer {
             .await
             {
                 Ok(proxy) => {
-                    eprintln!("Connected to orchestrator");
+                    eprintln!("Connected to orchestrator on system bus");
                     Some(proxy)
                 }
                 Err(e) => {
@@ -92,17 +123,19 @@ impl McpServer {
                 }
             },
             Err(e) => {
-                eprintln!("Warning: Could not connect to D-Bus session: {}", e);
+                eprintln!("Warning: Could not connect to D-Bus system bus: {}", e);
                 None
             }
         };
 
         Ok(Self {
-            registry,
+            registry_service,
             resources,
             orchestrator,
         })
     }
+
+    /// Initialize D-Bus introspection cache
 
     /// Register default tools dynamically
     async fn register_default_tools(registry: &ToolRegistry) -> Result<()> {
@@ -119,6 +152,7 @@ impl McpServer {
                 },
                 "required": ["service"]
             }))
+            .security_level(SecurityLevel::Medium)
             .handler(|params| async move {
                 let service = params["service"]
                     .as_str()
@@ -231,6 +265,7 @@ impl McpServer {
                 },
                 "required": ["command"]
             }))
+            .security_level(SecurityLevel::Critical)
             .handler(|params| async move {
                 let command = params["command"]
                     .as_str()
@@ -286,7 +321,10 @@ impl McpServer {
                     .await?;
 
                 if !output.status.success() {
-                    return Err(anyhow::anyhow!("OVSDB RPC failed: {}", String::from_utf8_lossy(&output.stderr)));
+                    return Err(anyhow::anyhow!(
+                        "OVSDB RPC failed: {}",
+                        String::from_utf8_lossy(&output.stderr)
+                    ));
                 }
 
                 let response: Value = serde_json::from_slice(&output.stdout)?;
@@ -298,9 +336,7 @@ impl McpServer {
                     }
                 }
 
-                let result = response.get("result")
-                    .cloned()
-                    .unwrap_or(json!(null));
+                let result = response.get("result").cloned().unwrap_or(json!(null));
 
                 Ok(ToolResult {
                     content: vec![ToolContent::text(serde_json::to_string_pretty(&result)?)],
@@ -337,6 +373,7 @@ impl McpServer {
                 },
                 "required": ["bridge_name"]
             }))
+            .security_level(SecurityLevel::High)
             .handler(|params| async move {
                 let bridge_name = params["bridge_name"]
                     .as_str()
@@ -431,6 +468,107 @@ impl McpServer {
 
         registry.register_tool(Box::new(create_ovs_bridge)).await?;
 
+        // Register agent management tools (control MCP server functionality)
+        agents::register_agent_tools(&registry).await?;
+
+        // Register granular D-Bus tools
+        dbus_granular::register_dbus_granular_tools(&registry).await?;
+
+        // Register introspection tools
+        introspection_tools::register_introspection_tools(&registry).await?;
+
+        Ok(())
+    }
+
+    /// Register agents as tools (fetches from chat-server)
+    async fn register_agent_tools(registry: &ToolRegistry) -> Result<()> {
+        // Try to fetch agents from localhost:8080/api/agents
+        let client = match reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(5))
+            .build()
+        {
+            Ok(c) => c,
+            Err(_) => return Err(anyhow::anyhow!("Could not create HTTP client")),
+        };
+
+        let agents_response = match client.get("http://localhost:8080/api/agents").send().await {
+            Ok(resp) => match resp.json::<serde_json::Value>().await {
+                Ok(data) => data,
+                Err(e) => {
+                    eprintln!("Failed to parse agents response: {}", e);
+                    return Err(anyhow::anyhow!("Failed to parse agents"));
+                }
+            },
+            Err(e) => {
+                eprintln!("Failed to fetch agents from chat-server: {}", e);
+                return Err(anyhow::anyhow!("Failed to fetch agents"));
+            }
+        };
+
+        // Extract agents array
+        if let Some(agents) = agents_response.get("data").and_then(|d| d.as_array()) {
+            eprintln!("Registering {} agent tools", agents.len());
+
+            for agent in agents {
+                if let (Some(agent_type), Some(name), Some(description), Some(capabilities)) = (
+                    agent.get("agent_type").and_then(|v| v.as_str()),
+                    agent.get("name").and_then(|v| v.as_str()),
+                    agent.get("description").and_then(|v| v.as_str()),
+                    agent.get("capabilities").and_then(|v| v.as_array()),
+                ) {
+                    let agent_type = agent_type.to_string();
+                    let description = description.to_string();
+                    let caps: Vec<String> = capabilities
+                        .iter()
+                        .filter_map(|c| c.as_str().map(|s| s.to_string()))
+                        .collect();
+
+                    // Create tool for this agent
+                    let agent_type_arc = std::sync::Arc::new(agent_type.clone());
+                    let agent_tool = DynamicToolBuilder::new(&agent_type)
+                        .description(&description)
+                        .schema(json!({
+                            "type": "object",
+                            "properties": {
+                                "task": {
+                                    "type": "string",
+                                    "description": "Task to execute"
+                                },
+                                "config": {
+                                    "type": "object",
+                                    "description": "Agent configuration"
+                                }
+                            },
+                            "required": ["task"]
+                        }))
+                        .handler(move |params| {
+                            let agent_type_arc = agent_type_arc.clone();
+                            async move {
+                                let task = params["task"]
+                                    .as_str()
+                                    .ok_or_else(|| anyhow::anyhow!("Missing task parameter"))?;
+
+                                Ok(ToolResult {
+                                    content: vec![ToolContent::text(format!(
+                                        "Agent '{}' task queued: {}",
+                                        agent_type_arc, task
+                                    ))],
+                                    metadata: None,
+                                })
+                            }
+                        })
+                        .build();
+
+                    registry.register_tool(Box::new(agent_tool)).await?;
+                    eprintln!(
+                        "  Registered agent tool: {} - {}",
+                        agent_type,
+                        caps.join(", ")
+                    );
+                }
+            }
+        }
+
         Ok(())
     }
 
@@ -481,7 +619,7 @@ impl McpServer {
     }
 
     async fn handle_tools_list(&self, id: Option<Value>) -> McpResponse {
-        let tools = self.registry.list_tools().await;
+        let tools = self.registry_service.registry().list_tools().await;
 
         let tool_list: Vec<Value> = tools
             .into_iter()
@@ -551,8 +689,8 @@ impl McpServer {
             };
         }
 
-        // Execute tool through registry
-        match self.registry.execute_tool(tool_name, arguments).await {
+        // Execute tool through registry service
+        match self.registry_service.registry().execute_tool(tool_name, arguments).await {
             Ok(result) => McpResponse {
                 jsonrpc: "2.0".to_string(),
                 id,

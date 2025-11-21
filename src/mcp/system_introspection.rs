@@ -3,7 +3,7 @@
 //! Generates MCP tool schemas for each discovered service
 
 use crate::mcp::introspection_cache::IntrospectionCache;
-use crate::mcp::introspection_parser::{IntrospectionParser, InterfaceInfo};
+use crate::mcp::introspection_parser::{InterfaceInfo, IntrospectionParser};
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -49,7 +49,10 @@ impl SystemIntrospector {
                 Some(Arc::new(Mutex::new(c)))
             }
             Err(e) => {
-                log::warn!("Failed to initialize introspection cache, running without cache: {}", e);
+                log::warn!(
+                    "Failed to initialize introspection cache, running without cache: {}",
+                    e
+                );
                 None
             }
         };
@@ -109,7 +112,9 @@ impl SystemIntrospector {
         // Try cache first
         if let Some(ref cache) = self.cache {
             if let Ok(cache_guard) = cache.lock() {
-                if let Ok(Some(_cached_json)) = cache_guard.get_introspection_json(service_name, object_path, None) {
+                if let Ok(Some(_cached_json)) =
+                    cache_guard.get_introspection_json(service_name, object_path, None)
+                {
                     log::debug!("Cache hit for {} at {}", service_name, object_path);
                     // Convert JSON back to XML for compatibility
                     // (Ideally we'd return JSON directly, but existing code expects XML)
@@ -120,7 +125,11 @@ impl SystemIntrospector {
         }
 
         // Cache miss or no cache - do D-Bus introspection
-        log::debug!("Cache miss for {} at {}, performing D-Bus introspection", service_name, object_path);
+        log::debug!(
+            "Cache miss for {} at {}, performing D-Bus introspection",
+            service_name,
+            object_path
+        );
 
         let proxy = Proxy::new(
             &self.connection,
@@ -134,18 +143,27 @@ impl SystemIntrospector {
             service_name, object_path
         ))?;
 
-        let xml: String = proxy
-            .call("Introspect", &())
-            .await
-            .context(format!("Failed to introspect {} at {}", service_name, object_path))?;
+        let xml: String = proxy.call("Introspect", &()).await.context(format!(
+            "Failed to introspect {} at {}",
+            service_name, object_path
+        ))?;
 
         // Store in cache for next time
         if let Some(ref cache) = self.cache {
             if let Ok(cache_guard) = cache.lock() {
                 if let Err(e) = cache_guard.store_introspection(service_name, object_path, &xml) {
-                    log::warn!("Failed to cache introspection for {} at {}: {}", service_name, object_path, e);
+                    log::warn!(
+                        "Failed to cache introspection for {} at {}: {}",
+                        service_name,
+                        object_path,
+                        e
+                    );
                 } else {
-                    log::debug!("Cached introspection for {} at {}", service_name, object_path);
+                    log::debug!(
+                        "Cached introspection for {} at {}",
+                        service_name,
+                        object_path
+                    );
                 }
             }
         }
@@ -163,7 +181,10 @@ impl SystemIntrospector {
             let mut discovered = vec![start_path.to_string()];
 
             // Try to introspect the starting path
-            match self.introspect_service_at_path(service_name, start_path).await {
+            match self
+                .introspect_service_at_path(service_name, start_path)
+                .await
+            {
                 Ok(xml) => {
                     // Extract child nodes from XML
                     let children = self.extract_child_nodes(&xml);
@@ -246,7 +267,9 @@ impl SystemIntrospector {
         };
 
         // Discover all object paths
-        let mut object_paths = self.discover_object_paths(service_name, &default_path).await?;
+        let mut object_paths = self
+            .discover_object_paths(service_name, &default_path)
+            .await?;
 
         // Also try root path if not already included
         if !object_paths.contains(&"/".to_string()) {
@@ -423,10 +446,16 @@ impl SystemIntrospector {
     ) -> Result<Option<serde_json::Value>> {
         if let Some(ref cache) = self.cache {
             if let Ok(cache_guard) = cache.lock() {
-                cache_guard.get_methods_json(service_name, interface_name)
+                cache_guard
+                    .get_methods_json(service_name, interface_name)
                     .map(Some)
                     .or_else(|e| {
-                        log::debug!("Cache query failed for {}.{}: {}", service_name, interface_name, e);
+                        log::debug!(
+                            "Cache query failed for {}.{}: {}",
+                            service_name,
+                            interface_name,
+                            e
+                        );
                         Ok(None)
                     })
             } else {
@@ -486,11 +515,26 @@ async fn main() -> Result<()> {
 
     if args.len() < 2 {
         println!("Usage:");
-        println!("  {} list                   - List all D-Bus services", args[0]);
-        println!("  {} introspect <service>   - Introspect specific service", args[0]);
-        println!("  {} introspect-all         - Introspect all services", args[0]);
-        println!("  {} mcp-tools <service>    - Generate MCP tools for service", args[0]);
-        println!("  {} mcp-tools-all          - Generate MCP tools for all services", args[0]);
+        println!(
+            "  {} list                   - List all D-Bus services",
+            args[0]
+        );
+        println!(
+            "  {} introspect <service>   - Introspect specific service",
+            args[0]
+        );
+        println!(
+            "  {} introspect-all         - Introspect all services",
+            args[0]
+        );
+        println!(
+            "  {} mcp-tools <service>    - Generate MCP tools for service",
+            args[0]
+        );
+        println!(
+            "  {} mcp-tools-all          - Generate MCP tools for all services",
+            args[0]
+        );
         return Ok(());
     }
 

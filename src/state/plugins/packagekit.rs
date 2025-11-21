@@ -12,7 +12,7 @@ use std::process::Command;
 use zbus::proxy;
 
 use crate::state::plugin::{
-    ApplyResult, Checkpoint, PluginCapabilities, StateAction, StateDiff, StatePlugin, DiffMetadata
+    ApplyResult, Checkpoint, DiffMetadata, PluginCapabilities, StateAction, StateDiff, StatePlugin,
 };
 
 // PackageKit D-Bus interface
@@ -36,10 +36,20 @@ trait PackageKit {
 )]
 trait PackageKitTransaction {
     /// Install packages
-    async fn install_packages(&self, transaction_flags: u64, package_ids: Vec<String>) -> zbus::Result<()>;
+    async fn install_packages(
+        &self,
+        transaction_flags: u64,
+        package_ids: Vec<String>,
+    ) -> zbus::Result<()>;
 
     /// Remove packages
-    async fn remove_packages(&self, transaction_flags: u64, package_ids: Vec<String>, allow_deps: bool, autoremove: bool) -> zbus::Result<()>;
+    async fn remove_packages(
+        &self,
+        transaction_flags: u64,
+        package_ids: Vec<String>,
+        allow_deps: bool,
+        autoremove: bool,
+    ) -> zbus::Result<()>;
 
     /// Resolve packages
     async fn resolve(&self, filters: u64, packages: Vec<String>) -> zbus::Result<()>;
@@ -47,7 +57,7 @@ trait PackageKitTransaction {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PackageState {
-    pub ensure: String, // "installed", "removed", "latest"
+    pub ensure: String,           // "installed", "removed", "latest"
     pub provider: Option<String>, // "apt", "dnf", "pacman", etc.
     pub version: Option<String>,
 }
@@ -71,7 +81,6 @@ impl PackageKitPlugin {
     pub fn new() -> Self {
         Self
     }
-
 
     /// Install package via direct package manager
     async fn install_via_direct(&self, package_name: &str) -> Result<()> {
@@ -192,7 +201,9 @@ impl StatePlugin for PackageKitPlugin {
 
     async fn calculate_diff(&self, _current: &Value, desired: &Value) -> Result<StateDiff> {
         println!("PackageKit calculate_diff called with: {}", desired);
-        let packages_obj = desired.get("packages").ok_or_else(|| anyhow::anyhow!("missing packages field"))?;
+        let packages_obj = desired
+            .get("packages")
+            .ok_or_else(|| anyhow::anyhow!("missing packages field"))?;
         let packages: HashMap<String, PackageState> = serde_json::from_value(packages_obj.clone())?;
         let desired_state = PackageKitState {
             version: 1,
@@ -245,28 +256,33 @@ impl StatePlugin for PackageKitPlugin {
 
         for action in &diff.actions {
             match action {
-                StateAction::Create { resource, config: _ } => {
-                    match self.install_via_direct(resource).await {
-                        Ok(()) => {
-                            changes_applied.push(format!("✅ Installed package: {}", resource));
-                        }
-                        Err(e) => {
-                            errors.push(format!("❌ Failed to install {}: {}", resource, e));
-                        }
+                StateAction::Create {
+                    resource,
+                    config: _,
+                } => match self.install_via_direct(resource).await {
+                    Ok(()) => {
+                        changes_applied.push(format!("✅ Installed package: {}", resource));
                     }
-                }
-                StateAction::Delete { resource } => {
-                    match self.remove_via_direct(resource).await {
-                        Ok(()) => {
-                            changes_applied.push(format!("✅ Removed package: {}", resource));
-                        }
-                        Err(e) => {
-                            errors.push(format!("❌ Failed to remove {}: {}", resource, e));
-                        }
+                    Err(e) => {
+                        errors.push(format!("❌ Failed to install {}: {}", resource, e));
                     }
-                }
-                StateAction::Modify { resource, changes: _ } => {
-                    changes_applied.push(format!("⚠️  Package {} modification not implemented", resource));
+                },
+                StateAction::Delete { resource } => match self.remove_via_direct(resource).await {
+                    Ok(()) => {
+                        changes_applied.push(format!("✅ Removed package: {}", resource));
+                    }
+                    Err(e) => {
+                        errors.push(format!("❌ Failed to remove {}: {}", resource, e));
+                    }
+                },
+                StateAction::Modify {
+                    resource,
+                    changes: _,
+                } => {
+                    changes_applied.push(format!(
+                        "⚠️  Package {} modification not implemented",
+                        resource
+                    ));
                 }
                 StateAction::NoOp { resource } => {
                     changes_applied.push(format!("📦 Package {}: no action required", resource));
@@ -283,7 +299,9 @@ impl StatePlugin for PackageKitPlugin {
     }
 
     async fn verify_state(&self, desired: &Value) -> Result<bool> {
-        let packages_obj = desired.get("packages").ok_or_else(|| anyhow::anyhow!("missing packages field"))?;
+        let packages_obj = desired
+            .get("packages")
+            .ok_or_else(|| anyhow::anyhow!("missing packages field"))?;
         let packages: HashMap<String, PackageState> = serde_json::from_value(packages_obj.clone())?;
 
         for (package_name, package_config) in &packages {

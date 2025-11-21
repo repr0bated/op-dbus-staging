@@ -1,11 +1,13 @@
 use serde::Deserialize;
 use std::process::Command;
 use uuid::Uuid;
-use zbus::{interface, connection::Builder, object_server::SignalEmitter};
+use zbus::{connection::Builder, interface, object_server::SignalEmitter};
 
 // Security configuration
 const ALLOWED_DIRECTORIES: &[&str] = &["/tmp", "/home", "/opt"];
-const FORBIDDEN_CHARS: &[char] = &['$', '`', ';', '&', '|', '>', '<', '(', ')', '{', '}', '\n', '\r'];
+const FORBIDDEN_CHARS: &[char] = &[
+    '$', '`', ';', '&', '|', '>', '<', '(', ')', '{', '}', '\n', '\r',
+];
 const MAX_PATH_LENGTH: usize = 4096;
 
 #[derive(Debug, Deserialize)]
@@ -79,7 +81,8 @@ impl PhpProAgent {
 
     /// Signal emitted when task completes
     #[zbus(signal)]
-    async fn task_completed(signal_emitter: &SignalEmitter<'_>, result: String) -> zbus::Result<()>;
+    async fn task_completed(signal_emitter: &SignalEmitter<'_>, result: String)
+        -> zbus::Result<()>;
 }
 
 impl PhpProAgent {
@@ -153,15 +156,23 @@ impl PhpProAgent {
             }
         }
 
-        let output = cmd.output().map_err(|e| format!("Failed to run php: {}", e))?;
+        let output = cmd
+            .output()
+            .map_err(|e| format!("Failed to run php: {}", e))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
 
         if output.status.success() {
-            Ok(format!("PHP execution succeeded\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "PHP execution succeeded\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         } else {
-            Ok(format!("PHP execution failed\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "PHP execution failed\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         }
     }
 
@@ -176,15 +187,23 @@ impl PhpProAgent {
 
         cmd.arg("--verbose");
 
-        let output = cmd.output().map_err(|e| format!("Failed to run phpunit: {}", e))?;
+        let output = cmd
+            .output()
+            .map_err(|e| format!("Failed to run phpunit: {}", e))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
 
         if output.status.success() {
-            Ok(format!("Tests passed\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Tests passed\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         } else {
-            Ok(format!("Tests failed\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Tests failed\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         }
     }
 
@@ -197,15 +216,23 @@ impl PhpProAgent {
             cmd.arg(p);
         }
 
-        let output = cmd.output().map_err(|e| format!("Failed to run phpcs: {}", e))?;
+        let output = cmd
+            .output()
+            .map_err(|e| format!("Failed to run phpcs: {}", e))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
 
         if output.status.success() {
-            Ok(format!("PHPCS passed\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "PHPCS passed\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         } else {
-            Ok(format!("PHPCS found issues\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "PHPCS found issues\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         }
     }
 
@@ -218,15 +245,23 @@ impl PhpProAgent {
             cmd.arg("analyse").arg(p);
         }
 
-        let output = cmd.output().map_err(|e| format!("Failed to run phpstan: {}", e))?;
+        let output = cmd
+            .output()
+            .map_err(|e| format!("Failed to run phpstan: {}", e))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
 
         if output.status.success() {
-            Ok(format!("PHPStan passed\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "PHPStan passed\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         } else {
-            Ok(format!("PHPStan found issues\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "PHPStan found issues\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         }
     }
 }
@@ -238,10 +273,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let agent_id = if args.len() > 1 {
         args[1].clone()
     } else {
-        format!(
-            "php-pro-{}",
-            Uuid::new_v4().to_string()[..8].to_string()
-        )
+        format!("php-pro-{}", Uuid::new_v4().to_string()[..8].to_string())
     };
 
     println!("Starting PHP Pro Agent: {}", agent_id);

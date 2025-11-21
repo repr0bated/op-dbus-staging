@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 
-use crate::introspection::{SystemIntrospector, CpuFeatureAnalyzer};
+use crate::introspection::{CpuFeatureAnalyzer, SystemIntrospector};
 use crate::isp_migration::IspMigrationAnalyzer;
 use crate::mcp::system_introspection::SystemIntrospector as DbusIntrospector;
 
@@ -30,7 +30,9 @@ impl DiscoverSystemTool {
     pub fn new() -> Self {
         Self {
             name: "discover_system".to_string(),
-            description: "Introspect system hardware, CPU features, BIOS locks, and service configuration".to_string(),
+            description:
+                "Introspect system hardware, CPU features, BIOS locks, and service configuration"
+                    .to_string(),
             parameters: vec![
                 ToolParameter {
                     name: "include_packages".to_string(),
@@ -49,7 +51,7 @@ impl DiscoverSystemTool {
     }
 
     pub async fn execute(&self, params: HashMap<String, Value>) -> Result<Value> {
-        let include_packages = params
+        let _include_packages = params
             .get("include_packages")
             .and_then(|v| v.as_bool())
             .unwrap_or(false);
@@ -61,7 +63,7 @@ impl DiscoverSystemTool {
 
         // Run introspection
         let introspector = SystemIntrospector::new();
-        let mut report = introspector.introspect_system().await?;
+        let report = introspector.introspect_system().await?;
 
         // Add ISP analysis if requested
         if detect_provider {
@@ -89,7 +91,9 @@ impl AnalyzeCpuFeaturesTool {
     pub fn new() -> Self {
         Self {
             name: "analyze_cpu_features".to_string(),
-            description: "Detect CPU features, BIOS locks, and hidden capabilities (VT-x, IOMMU, SGX, etc.)".to_string(),
+            description:
+                "Detect CPU features, BIOS locks, and hidden capabilities (VT-x, IOMMU, SGX, etc.)"
+                    .to_string(),
             parameters: vec![],
         }
     }
@@ -113,15 +117,14 @@ impl AnalyzeIspTool {
     pub fn new() -> Self {
         Self {
             name: "analyze_isp".to_string(),
-            description: "Analyze current ISP/provider restrictions and recommend alternatives".to_string(),
-            parameters: vec![
-                ToolParameter {
-                    name: "requirements".to_string(),
-                    type_: "array".to_string(),
-                    description: "Required features: gpu, nested-virt, iommu, etc.".to_string(),
-                    required: false,
-                },
-            ],
+            description: "Analyze current ISP/provider restrictions and recommend alternatives"
+                .to_string(),
+            parameters: vec![ToolParameter {
+                name: "requirements".to_string(),
+                type_: "array".to_string(),
+                description: "Required features: gpu, nested-virt, iommu, etc.".to_string(),
+                required: false,
+            }],
         }
     }
 
@@ -139,7 +142,8 @@ impl AnalyzeIspTool {
             let mut result = serde_json::to_value(&report)?;
 
             // Filter providers that meet requirements
-            let filtered_providers: Vec<_> = report.recommended_providers
+            let filtered_providers: Vec<_> = report
+                .recommended_providers
                 .into_iter()
                 .filter(|provider| {
                     req_strs.iter().all(|req| match req.as_str() {
@@ -172,12 +176,14 @@ impl GenerateIspRequestTool {
     pub fn new() -> Self {
         Self {
             name: "generate_isp_request".to_string(),
-            description: "Generate professional support request for ISP to enable features".to_string(),
+            description: "Generate professional support request for ISP to enable features"
+                .to_string(),
             parameters: vec![
                 ToolParameter {
                     name: "feature".to_string(),
                     type_: "string".to_string(),
-                    description: "Feature to request: gpu-passthrough, nested-virt, iommu".to_string(),
+                    description: "Feature to request: gpu-passthrough, nested-virt, iommu"
+                        .to_string(),
                     required: true,
                 },
                 ToolParameter {
@@ -205,12 +211,8 @@ impl GenerateIspRequestTool {
             "gpu-passthrough" => {
                 crate::isp_support::generate_gpu_passthrough_request(None, use_case)?
             }
-            "nested-virt" => {
-                crate::isp_support::generate_nested_virt_request(use_case)?
-            }
-            "iommu" => {
-                crate::isp_support::generate_iommu_enable_request()?
-            }
+            "nested-virt" => crate::isp_support::generate_nested_virt_request(use_case)?,
+            "iommu" => crate::isp_support::generate_iommu_enable_request()?,
             _ => {
                 return Err(anyhow::anyhow!("Unknown feature: {}", feature));
             }
@@ -277,8 +279,12 @@ impl CompareHardwareTool {
 
         // CPU features
         if let (Some(cpu1), Some(cpu2)) = (
-            config1.get("system_config").and_then(|c| c.get("cpu_features")),
-            config2.get("system_config").and_then(|c| c.get("cpu_features")),
+            config1
+                .get("system_config")
+                .and_then(|c| c.get("cpu_features")),
+            config2
+                .get("system_config")
+                .and_then(|c| c.get("cpu_features")),
         ) {
             differences.push(serde_json::json!({
                 "category": "cpu_features",
@@ -301,8 +307,12 @@ impl CompareHardwareTool {
 
         // Virtualization
         if let (Some(virt1), Some(virt2)) = (
-            config1.get("system_config").and_then(|c| c.get("virtualization")),
-            config2.get("system_config").and_then(|c| c.get("virtualization")),
+            config1
+                .get("system_config")
+                .and_then(|c| c.get("virtualization")),
+            config2
+                .get("system_config")
+                .and_then(|c| c.get("virtualization")),
         ) {
             differences.push(serde_json::json!({
                 "category": "virtualization",
@@ -333,7 +343,8 @@ impl QueryCachedDbusMethodsTool {
     pub fn new() -> Self {
         Self {
             name: "query_cached_dbus_methods".to_string(),
-            description: "Fast query for D-Bus methods from cache (no D-Bus call overhead)".to_string(),
+            description: "Fast query for D-Bus methods from cache (no D-Bus call overhead)"
+                .to_string(),
             parameters: vec![
                 ToolParameter {
                     name: "service_name".to_string(),
@@ -344,7 +355,8 @@ impl QueryCachedDbusMethodsTool {
                 ToolParameter {
                     name: "interface_name".to_string(),
                     type_: "string".to_string(),
-                    description: "D-Bus interface name (e.g., org.freedesktop.systemd1.Manager)".to_string(),
+                    description: "D-Bus interface name (e.g., org.freedesktop.systemd1.Manager)"
+                        .to_string(),
                     required: true,
                 },
             ],
@@ -394,15 +406,14 @@ impl SearchDbusMethodsTool {
     pub fn new() -> Self {
         Self {
             name: "search_dbus_methods".to_string(),
-            description: "Search cached D-Bus methods by name pattern across all services".to_string(),
-            parameters: vec![
-                ToolParameter {
-                    name: "pattern".to_string(),
-                    type_: "string".to_string(),
-                    description: "Search pattern (case-sensitive, SQL LIKE syntax with %)".to_string(),
-                    required: true,
-                },
-            ],
+            description: "Search cached D-Bus methods by name pattern across all services"
+                .to_string(),
+            parameters: vec![ToolParameter {
+                name: "pattern".to_string(),
+                type_: "string".to_string(),
+                description: "Search pattern (case-sensitive, SQL LIKE syntax with %)".to_string(),
+                required: true,
+            }],
         }
     }
 
@@ -465,15 +476,15 @@ impl WarmCacheTool {
     pub fn new() -> Self {
         Self {
             name: "warm_introspection_cache".to_string(),
-            description: "Proactively cache common D-Bus services for faster future queries".to_string(),
-            parameters: vec![
-                ToolParameter {
-                    name: "services".to_string(),
-                    type_: "array".to_string(),
-                    description: "Optional list of service names. If empty, caches priority services".to_string(),
-                    required: false,
-                },
-            ],
+            description: "Proactively cache common D-Bus services for faster future queries"
+                .to_string(),
+            parameters: vec![ToolParameter {
+                name: "services".to_string(),
+                type_: "array".to_string(),
+                description: "Optional list of service names. If empty, caches priority services"
+                    .to_string(),
+                required: false,
+            }],
         }
     }
 
@@ -678,12 +689,16 @@ impl IntrospectDbusObjectTool {
         let service_name = params
             .get("service_name")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow::anyhow!("service_name required. Use list_dbus_services first."))?;
+            .ok_or_else(|| {
+                anyhow::anyhow!("service_name required. Use list_dbus_services first.")
+            })?;
 
         let object_path = params
             .get("object_path")
             .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow::anyhow!("object_path required. Use list_dbus_object_paths first."))?;
+            .ok_or_else(|| {
+                anyhow::anyhow!("object_path required. Use list_dbus_object_paths first.")
+            })?;
 
         let introspector = DbusIntrospector::new().await?;
 
@@ -804,14 +819,12 @@ pub fn register_introspection_tools() -> Vec<Box<dyn McpTool>> {
         Box::new(ListDbusServicesTool::new()),
         Box::new(ListDbusObjectPathsTool::new()),
         Box::new(IntrospectDbusObjectTool::new()),
-
         // System introspection tools
         Box::new(DiscoverSystemTool::new()),
         Box::new(AnalyzeCpuFeaturesTool::new()),
         Box::new(AnalyzeIspTool::new()),
         Box::new(GenerateIspRequestTool::new()),
         Box::new(CompareHardwareTool::new()),
-
         // Cache query tools (require knowing service/interface names)
         Box::new(QueryCachedDbusMethodsTool::new()),
         Box::new(SearchDbusMethodsTool::new()),

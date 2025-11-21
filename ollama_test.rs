@@ -24,7 +24,7 @@ struct ChatResponse {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("Testing DeepSeek Ollama Cloud API...");
+    println!("Testing Ollama Cloud API...");
 
     let client = Client::builder()
         .timeout(Duration::from_secs(300))
@@ -33,7 +33,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let api_key = "1e4ffc3e35d14302ae8c38a3b88afbdf.6rcSE8GW_DsKPquVev9o7obK";
 
     let request = ChatRequest {
-        model: "deepseek-v3.1:671b-cloud".to_string(),
+        model: std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "llama2".to_string()),
         messages: vec![ChatMessage {
             role: "user".to_string(),
             content: "Hello! Can you tell me what 2+2 equals?".to_string(),
@@ -50,7 +50,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if response.status().is_success() {
         let chat_response: ChatResponse = response.json().await?;
-        println!("✅ Success! DeepSeek Response:");
+        println!("✅ Success! AI Response:");
         println!("Model: {}", chat_response.model.unwrap_or("unknown".to_string()));
         println!("Content: {}", chat_response.message.content);
     } else {

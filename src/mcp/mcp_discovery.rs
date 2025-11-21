@@ -1,7 +1,7 @@
 //! MCP Server Discovery and Config Generation
 //! Discovers hosted MCP servers and writes JSON configs for popular clients
 
-use crate::mcp::mcp_client::{McpClient, HostedMcpInfo};
+use crate::mcp::mcp_client::{HostedMcpInfo, McpClient};
 use anyhow::{Context, Result};
 use std::path::PathBuf;
 
@@ -15,7 +15,9 @@ pub async fn discover_and_write_configs(
     // Load configs from file or default location
     let config_path = config_file.unwrap_or("/home/jeremy/.config/Cursor/mcp.json");
     if std::path::Path::new(config_path).exists() {
-        client.load_configs_from_file(config_path).await
+        client
+            .load_configs_from_file(config_path)
+            .await
             .context("Failed to load MCP configs")?;
         eprintln!("Loaded MCP configs from: {}", config_path);
     } else {
@@ -26,7 +28,9 @@ pub async fn discover_and_write_configs(
 
     // Discover all configured servers
     eprintln!("\nDiscovering hosted MCP servers...");
-    let discovered = client.discover_servers().await
+    let discovered = client
+        .discover_servers()
+        .await
         .context("Failed to discover MCP servers")?;
 
     eprintln!("\nDiscovered {} MCP servers:", discovered.len());
@@ -47,16 +51,23 @@ pub async fn discover_and_write_configs(
     // Write configs for all popular clients
     let output_base = output_dir.unwrap_or("mcp-configs");
     eprintln!("\nWriting client configurations to: {}", output_base);
-    
-    client.write_client_configs(output_base, &discovered).await
+
+    client
+        .write_client_configs(output_base, &discovered)
+        .await
         .context("Failed to write client configs")?;
 
     // Also write individual tool configs
-    client.write_individual_tool_configs(output_base, &discovered).await
+    client
+        .write_individual_tool_configs(output_base, &discovered)
+        .await
         .context("Failed to write individual tool configs")?;
 
     eprintln!("\n✅ Config generation complete!");
-    eprintln!("   Client configs: {}/{{cursor,vscode,claude-desktop,aider}}/mcp.json", output_base);
+    eprintln!(
+        "   Client configs: {}/{{cursor,vscode,claude-desktop,aider}}/mcp.json",
+        output_base
+    );
     eprintln!("   Individual tools: {}/tools/", output_base);
 
     // Disconnect from all servers
@@ -68,7 +79,7 @@ pub async fn discover_and_write_configs(
 /// Get the default config file path for a client
 pub fn get_default_config_path(client: &str) -> PathBuf {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
-    
+
     match client {
         "cursor" => PathBuf::from(&home).join(".config/Cursor/mcp.json"),
         "vscode" => PathBuf::from(&home).join(".config/Code/User/globalStorage/mcp.json"),
@@ -77,4 +88,3 @@ pub fn get_default_config_path(client: &str) -> PathBuf {
         _ => PathBuf::from(&home).join(".config/mcp.json"),
     }
 }
-

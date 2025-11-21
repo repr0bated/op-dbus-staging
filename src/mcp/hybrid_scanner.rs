@@ -2,8 +2,8 @@
 //! Discovers both D-Bus services AND non-D-Bus system resources
 //! Bridges everything to a unified D-Bus interface
 
-use crate::mcp::system_introspection::{SystemIntrospector, DiscoveredService};
-use anyhow::{Context, Result};
+use crate::mcp::system_introspection::{DiscoveredService, SystemIntrospector};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -86,9 +86,7 @@ impl HybridScanner {
     pub async fn new() -> Result<Self> {
         let dbus_introspector = SystemIntrospector::new().await?;
 
-        Ok(Self {
-            dbus_introspector,
-        })
+        Ok(Self { dbus_introspector })
     }
 
     /// Perform complete system scan
@@ -130,11 +128,11 @@ impl HybridScanner {
 
         // Important directories to scan
         let scan_paths = vec![
-            "/dev",       // Device nodes
-            "/run",       // Runtime data
-            "/var/run",   // Runtime data (compat link)
-            "/proc",      // Process information
-            "/sys",       // Hardware/kernel interface
+            "/dev",     // Device nodes
+            "/run",     // Runtime data
+            "/var/run", // Runtime data (compat link)
+            "/proc",    // Process information
+            "/sys",     // Hardware/kernel interface
         ];
 
         for base_path in scan_paths {
@@ -222,7 +220,11 @@ impl HybridScanner {
 
         // Extract process name from cmdline or comm
         let name = if !cmdline.is_empty() {
-            cmdline.split_whitespace().next().unwrap_or("unknown").to_string()
+            cmdline
+                .split_whitespace()
+                .next()
+                .unwrap_or("unknown")
+                .to_string()
         } else {
             let comm_path = format!("{}/comm", proc_path);
             fs::read_to_string(&comm_path)
@@ -308,10 +310,10 @@ impl HybridScanner {
                     path: device_path.to_string_lossy().to_string(),
                     vendor,
                     model: device,
-                    driver: self.read_sysfs_file(&device_path.join("driver/module")).ok(),
-                    attributes: HashMap::from([
-                        ("class".to_string(), class.unwrap_or_default()),
-                    ]),
+                    driver: self
+                        .read_sysfs_file(&device_path.join("driver/module"))
+                        .ok(),
+                    attributes: HashMap::from([("class".to_string(), class.unwrap_or_default())]),
                 });
             }
         }
@@ -338,9 +340,7 @@ impl HybridScanner {
                     vendor: None,
                     model,
                     driver: None,
-                    attributes: HashMap::from([
-                        ("size".to_string(), size.unwrap_or_default()),
-                    ]),
+                    attributes: HashMap::from([("size".to_string(), size.unwrap_or_default())]),
                 });
             }
         }
@@ -456,9 +456,14 @@ impl HybridScanner {
                                 path: path.clone(),
                                 service: None,
                                 format,
-                                last_modified: metadata.modified()
-                                    .map(|t| t.duration_since(std::time::UNIX_EPOCH)
-                                        .unwrap_or_default().as_secs() as i64)
+                                last_modified: metadata
+                                    .modified()
+                                    .map(|t| {
+                                        t.duration_since(std::time::UNIX_EPOCH)
+                                            .unwrap_or_default()
+                                            .as_secs()
+                                            as i64
+                                    })
                                     .unwrap_or(0),
                                 size: metadata.len(),
                             });
@@ -501,7 +506,10 @@ mod tests {
 
         println!("Hybrid Scan Results:");
         println!("  D-Bus services: {}", result.dbus_services.len());
-        println!("  Filesystem resources: {}", result.filesystem_resources.len());
+        println!(
+            "  Filesystem resources: {}",
+            result.filesystem_resources.len()
+        );
         println!("  Processes: {}", result.processes.len());
         println!("  Hardware devices: {}", result.hardware.len());
         println!("  Network interfaces: {}", result.network_interfaces.len());

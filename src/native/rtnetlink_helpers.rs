@@ -219,7 +219,6 @@ pub async fn list_veth_interfaces() -> Result<Vec<String>> {
     Ok(Vec::new())
 }
 
-
 /// Rename network interface
 pub async fn link_set_name(old_name: &str, new_name: &str) -> Result<()> {
     let (connection, handle, _) = new_connection()?;

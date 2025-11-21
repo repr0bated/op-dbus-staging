@@ -6,9 +6,9 @@ After=network.target dbus.service
 [Service]
 Type=simple
 User=jeremy
-WorkingDirectory=/git/operation-dbus
+WorkingDirectory=/home/jeremy/op-dbus-staging
 Environment="RUST_LOG=info"
-ExecStart=/git/operation-dbus/target/release/dbus-mcp
+ExecStart=/usr/local/bin/dbus-mcp
 Restart=always
 RestartSec=10
 StandardOutput=journal

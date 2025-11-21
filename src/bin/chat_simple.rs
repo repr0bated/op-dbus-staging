@@ -1,7 +1,7 @@
 //! Simple AI Chat Server - Only uses working code
 //! No broken zbus dependencies
 //! Run with: OLLAMA_API_KEY=your-key OLLAMA_DEFAULT_MODEL=model-name cargo run --bin chat_simple --release
-//! Example models: deepseek-v3.1:671b-cloud, llama2, mistral, etc.
+//! Example models: llama2, mistral, qwen, gemma, etc.
 
 use axum::{
     extract::{Json, State},
@@ -24,8 +24,8 @@ mod ai_context_mod {
     include!("../mcp/ai_context_provider.rs");
 }
 
-use ollama_mod::{ChatMessage, OllamaClient};
 use ai_context_mod::{AiContextProvider, SystemContext};
+use ollama_mod::{ChatMessage, OllamaClient};
 
 #[derive(Clone)]
 struct AppState {
@@ -57,11 +57,9 @@ async fn main() -> anyhow::Result<()> {
 
     println!("🚀 AI Chat Server (Simple Mode)\n");
 
-    let api_key = std::env::var("OLLAMA_API_KEY")
-        .expect("OLLAMA_API_KEY not set");
+    let api_key = std::env::var("OLLAMA_API_KEY").expect("OLLAMA_API_KEY not set");
 
-    let model = std::env::var("OLLAMA_DEFAULT_MODEL")
-        .unwrap_or_else(|_| "llama2".to_string());
+    let model = std::env::var("OLLAMA_DEFAULT_MODEL").unwrap_or_else(|_| "llama2".to_string());
 
     println!("✅ API key loaded");
     println!("✅ Using model: {}", model);
@@ -84,8 +82,7 @@ async fn main() -> anyhow::Result<()> {
         history: Arc::new(RwLock::new(Vec::new())),
     };
 
-    let web_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("src/mcp/web");
+    let web_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/mcp/web");
 
     let app = Router::new()
         .route("/", get(|| async { Redirect::permanent("/index.html") }))
@@ -119,7 +116,6 @@ async fn handle_chat(
     State(state): State<AppState>,
     Json(req): Json<ChatRequest>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-    
     println!("💬 {}", req.message);
 
     let sys_ctx_text = {
@@ -136,13 +132,7 @@ async fn handle_chat(
     let model = state.ollama.default_model();
     let response = state
         .ollama
-        .chat_with_context(
-            &model,
-            &sys_ctx_text,
-            &history,
-            &req.message,
-            Some(0.7),
-        )
+        .chat_with_context(&model, &sys_ctx_text, &history, &req.message, Some(0.7))
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 

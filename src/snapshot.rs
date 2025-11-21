@@ -7,9 +7,9 @@
 //! - Tagged: Keep specific snapshots forever (golden masters)
 
 use anyhow::{bail, Context, Result};
+use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use serde::{Deserialize, Serialize};
 
 /// Snapshot retention policy
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -65,11 +65,7 @@ impl SnapshotManager {
     }
 
     /// Create a new snapshot with rolling retention
-    pub fn create_snapshot(
-        &self,
-        source: impl AsRef<Path>,
-        name: Option<&str>,
-    ) -> Result<PathBuf> {
+    pub fn create_snapshot(&self, source: impl AsRef<Path>, name: Option<&str>) -> Result<PathBuf> {
         let source = source.as_ref();
 
         // Ensure snapshots directory exists
@@ -171,7 +167,11 @@ impl SnapshotManager {
     }
 
     /// Apply tagged retention (keep all tagged, rolling for untagged)
-    fn apply_tagged_retention(&self, snapshots: &[SnapshotInfo], keep_untagged: usize) -> Result<()> {
+    fn apply_tagged_retention(
+        &self,
+        snapshots: &[SnapshotInfo],
+        keep_untagged: usize,
+    ) -> Result<()> {
         let mut untagged: Vec<_> = snapshots.iter().filter(|s| !s.tagged).collect();
         untagged.sort_by_key(|s| s.created);
 
@@ -189,11 +189,7 @@ impl SnapshotManager {
     /// Delete a snapshot
     pub fn delete_snapshot(&self, snapshot_path: &Path) -> Result<()> {
         let output = Command::new("btrfs")
-            .args(&[
-                "subvolume",
-                "delete",
-                snapshot_path.to_str().unwrap(),
-            ])
+            .args(&["subvolume", "delete", snapshot_path.to_str().unwrap()])
             .output()
             .context("Failed to execute btrfs delete command")?;
 
@@ -234,7 +230,8 @@ impl SnapshotManager {
 
             // Get creation time and size
             let metadata = std::fs::metadata(&path)?;
-            let created = metadata.created()
+            let created = metadata
+                .created()
                 .or_else(|_| metadata.modified())?
                 .duration_since(std::time::UNIX_EPOCH)?
                 .as_secs() as i64;

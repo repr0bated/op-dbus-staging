@@ -33,8 +33,8 @@ pub mod tools {
 }
 
 // Chat interface
-pub mod chat_server;
 pub mod ai_context_provider;
+pub mod chat_server;
 pub mod ollama;
 
 // Flow-based workflows
@@ -50,14 +50,22 @@ pub mod plugin_tool_bridge;
 // D-Bus indexer for hierarchical abstraction
 pub mod dbus_indexer;
 
-// Introspection cache with JSON/SQLite storage
+// Introspection cache with JSON/SQLite storage (now Send+Sync with RwLock)
 pub mod introspection_cache;
 
 // Introspection tools for MCP
 pub mod introspection_tools;
 
+// Workflow and plugin introspection for AI context
+pub mod workflow_plugin_introspection;
+
 // Embedded resources for MCP
 pub mod resources;
+
+// pub mod comprehensive_introspection;
+
+// Bundled comprehensive agents
+pub mod embedded_agents;
 
 #[cfg(feature = "mcp")]
 pub mod web_bridge;

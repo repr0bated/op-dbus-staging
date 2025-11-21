@@ -2,10 +2,9 @@
 // This adds system discovery and hardware introspection to MCP
 
 use anyhow::Result;
-use serde_json::{json, Value};
-use std::sync::Arc;
+use serde_json::json;
 
-use super::tool_registry::{DynamicToolBuilder, Tool, ToolContent, ToolRegistry, ToolResult};
+use super::tool_registry::{DynamicToolBuilder, ToolContent, ToolRegistry, ToolResult};
 
 /// Register all introspection tools with the MCP tool registry
 pub async fn register_introspection_tools(registry: &ToolRegistry) -> Result<()> {
@@ -46,7 +45,7 @@ async fn register_discover_system(registry: &ToolRegistry) -> Result<()> {
 
                 // Perform system introspection using system commands
                 use std::process::Command;
-                
+
                 let mut result = json!({
                     "system_info": {},
                     "hardware": {},
@@ -83,7 +82,7 @@ async fn register_discover_system(registry: &ToolRegistry) -> Result<()> {
                 // Get running services
                 if let Ok(output) = Command::new("systemctl")
                     .args(&["list-units", "--type=service", "--state=running", "--no-pager"])
-                    .output() 
+                    .output()
                 {
                     let services = String::from_utf8_lossy(&output.stdout);
                     result["services"]["running"] = json!(services.lines().take(10).collect::<Vec<_>>());

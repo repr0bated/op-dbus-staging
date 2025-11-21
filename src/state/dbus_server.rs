@@ -6,7 +6,7 @@ use crate::state::{
 };
 use anyhow::Result;
 use std::sync::Arc;
-use zbus::{interface, connection::Builder};
+use zbus::{connection::Builder, interface};
 
 /// D-Bus interface for the state manager
 pub struct StateManagerDBus {
@@ -163,10 +163,7 @@ impl StateManagerDBus {
         };
 
         if filtered_actions.is_empty() {
-            return Ok(format!(
-                "No flows to restore for bridge: {}",
-                bridge_name
-            ));
+            return Ok(format!("No flows to restore for bridge: {}", bridge_name));
         }
 
         // Create filtered diff

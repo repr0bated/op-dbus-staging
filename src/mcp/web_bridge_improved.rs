@@ -196,7 +196,7 @@ pub async fn run_improved_web_server() -> Result<(), Box<dyn std::error::Error>>
 fn create_app(state: AppState) -> Router {
     // Determine the web directory path
     let web_dir = PathBuf::from("src/mcp/web");
-    let index_file = web_dir.join("index.html");
+    let _index_file = web_dir.join("index.html");
 
     Router::new()
         // Static files and index
@@ -290,7 +290,8 @@ async fn api_list_agents(State(state): State<AppState>) -> impl IntoResponse {
                 let mut agents = vec![];
                 for id in agent_ids {
                     let params: (String,) = (id.clone(),);
-                    let result: Result<String, _> = orchestrator.call("GetAgentStatus", &params).await;
+                    let result: Result<String, _> =
+                        orchestrator.call("GetAgentStatus", &params).await;
                     if let Ok(status_json) = result {
                         if let Ok(status) = serde_json::from_str::<Value>(&status_json) {
                             agents.push(AgentInfo {
@@ -353,10 +354,7 @@ async fn api_kill_agent(
     Path(agent_id): Path<String>,
 ) -> impl IntoResponse {
     if let Some(orchestrator) = &state.orchestrator {
-        match orchestrator
-            .call("KillAgent", &(agent_id.clone(),))
-            .await
-        {
+        match orchestrator.call("KillAgent", &(agent_id.clone(),)).await {
             Ok(success) => {
                 if success {
                     // Broadcast activity
@@ -533,7 +531,8 @@ async fn monitor_agents_task(state: AppState) {
 
                 for id in agent_ids {
                     let params: (String,) = (id.clone(),);
-                    let result: Result<String, _> = orchestrator.call("GetAgentStatus", &params).await;
+                    let result: Result<String, _> =
+                        orchestrator.call("GetAgentStatus", &params).await;
                     if let Ok(status_json) = result {
                         if let Ok(status) = serde_json::from_str::<Value>(&status_json) {
                             agents.push(AgentInfo {

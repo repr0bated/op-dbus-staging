@@ -2,12 +2,9 @@
 //! Exposes non-D-Bus system resources (filesystem, processes, hardware) via D-Bus
 //! Creates a unified D-Bus interface for everything discovered by hybrid scanner
 
-use crate::mcp::hybrid_scanner::{
-    FilesystemResource, HardwareDevice, HybridScanner, NetworkInterface, ProcessInfo,
-};
+use crate::mcp::hybrid_scanner::{FilesystemResource, HardwareDevice, HybridScanner};
 use anyhow::Result;
-use serde_json::Value;
-use zbus::{interface, connection::Builder};
+use zbus::{connection::Builder, interface};
 
 /// D-Bus service that exposes hybrid system resources
 pub struct HybridSystemBridge {
@@ -75,7 +72,10 @@ impl HybridSystemBridge {
                         .map_err(|e| zbus::fdo::Error::Failed(e.to_string()))?;
                     Ok(json)
                 } else {
-                    Err(zbus::fdo::Error::Failed(format!("Process {} not found", pid)))
+                    Err(zbus::fdo::Error::Failed(format!(
+                        "Process {} not found",
+                        pid
+                    )))
                 }
             }
             Err(e) => Err(zbus::fdo::Error::Failed(e.to_string())),
@@ -133,7 +133,10 @@ impl HybridSystemBridge {
                         .map_err(|e| zbus::fdo::Error::Failed(e.to_string()))?;
                     Ok(json)
                 } else {
-                    Err(zbus::fdo::Error::Failed(format!("Interface {} not found", name)))
+                    Err(zbus::fdo::Error::Failed(format!(
+                        "Interface {} not found",
+                        name
+                    )))
                 }
             }
             Err(e) => Err(zbus::fdo::Error::Failed(e.to_string())),
@@ -212,7 +215,10 @@ async fn main() -> Result<()> {
 
     if args.len() < 2 {
         println!("Usage:");
-        println!("  {} start              - Start hybrid D-Bus bridge service", args[0]);
+        println!(
+            "  {} start              - Start hybrid D-Bus bridge service",
+            args[0]
+        );
         println!("  {} test <method>      - Test a specific method", args[0]);
         println!("\nAvailable test methods:");
         println!("  scan-all              - Scan all resources");

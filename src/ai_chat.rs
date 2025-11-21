@@ -17,7 +17,7 @@ use tower_http::{
     services::{ServeDir, ServeFile},
     trace::TraceLayer,
 };
-use tracing::{info, error};
+use tracing::{error, info};
 
 // Use local Ollama client
 use ollama::OllamaClient;
@@ -113,10 +113,13 @@ async fn handle_socket(socket: WebSocket, state: ChatState) {
     let (mut sender, mut receiver) = socket.split();
 
     // Generate a simple conversation ID
-    let conversation_id = format!("conv_{}", std::time::SystemTime::now()
-        .duration_since(std::time::SystemTime::UNIX_EPOCH)
-        .unwrap()
-        .as_millis());
+    let conversation_id = format!(
+        "conv_{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_millis()
+    );
 
     while let Some(Ok(message)) = receiver.next().await {
         if let Message::Text(text) = message {
@@ -138,7 +141,8 @@ async fn handle_socket(socket: WebSocket, state: ChatState) {
                         // Add to conversation
                         {
                             let mut conversations = state.conversations.write().await;
-                            conversations.entry(conversation_id.clone())
+                            conversations
+                                .entry(conversation_id.clone())
                                 .or_insert_with(Vec::new)
                                 .push(user_msg.clone());
                         }
@@ -164,7 +168,8 @@ async fn handle_socket(socket: WebSocket, state: ChatState) {
                                     // Add to conversation
                                     {
                                         let mut conversations = state.conversations.write().await;
-                                        conversations.entry(conversation_id.clone())
+                                        conversations
+                                            .entry(conversation_id.clone())
                                             .or_insert_with(Vec::new)
                                             .push(ai_msg.clone());
                                     }

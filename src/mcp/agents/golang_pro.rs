@@ -1,11 +1,13 @@
 use serde::Deserialize;
 use std::process::Command;
 use uuid::Uuid;
-use zbus::{interface, connection::Builder, object_server::SignalEmitter};
+use zbus::{connection::Builder, interface, object_server::SignalEmitter};
 
 // Security configuration
 const ALLOWED_DIRECTORIES: &[&str] = &["/tmp", "/home", "/opt"];
-const FORBIDDEN_CHARS: &[char] = &['$', '`', ';', '&', '|', '>', '<', '(', ')', '{', '}', '\n', '\r'];
+const FORBIDDEN_CHARS: &[char] = &[
+    '$', '`', ';', '&', '|', '>', '<', '(', ')', '{', '}', '\n', '\r',
+];
 const MAX_PATH_LENGTH: usize = 4096;
 
 #[derive(Debug, Deserialize)]
@@ -81,7 +83,8 @@ impl GolangProAgent {
 
     /// Signal emitted when task completes
     #[zbus(signal)]
-    async fn task_completed(signal_emitter: &SignalEmitter<'_>, result: String) -> zbus::Result<()>;
+    async fn task_completed(signal_emitter: &SignalEmitter<'_>, result: String)
+        -> zbus::Result<()>;
 }
 
 impl GolangProAgent {
@@ -156,15 +159,23 @@ impl GolangProAgent {
             }
         }
 
-        let output = cmd.output().map_err(|e| format!("Failed to run go run: {}", e))?;
+        let output = cmd
+            .output()
+            .map_err(|e| format!("Failed to run go run: {}", e))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
 
         if output.status.success() {
-            Ok(format!("Go run succeeded\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Go run succeeded\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         } else {
-            Ok(format!("Go run failed\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Go run failed\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         }
     }
 
@@ -179,15 +190,23 @@ impl GolangProAgent {
 
         cmd.arg("-v");
 
-        let output = cmd.output().map_err(|e| format!("Failed to run go test: {}", e))?;
+        let output = cmd
+            .output()
+            .map_err(|e| format!("Failed to run go test: {}", e))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
 
         if output.status.success() {
-            Ok(format!("Tests passed\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Tests passed\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         } else {
-            Ok(format!("Tests failed\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Tests failed\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         }
     }
 
@@ -200,15 +219,23 @@ impl GolangProAgent {
             cmd.arg("-o").arg("/tmp/go_output").arg(p);
         }
 
-        let output = cmd.output().map_err(|e| format!("Failed to run go build: {}", e))?;
+        let output = cmd
+            .output()
+            .map_err(|e| format!("Failed to run go build: {}", e))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
 
         if output.status.success() {
-            Ok(format!("Build succeeded\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Build succeeded\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         } else {
-            Ok(format!("Build failed\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Build failed\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         }
     }
 
@@ -220,7 +247,9 @@ impl GolangProAgent {
             cmd.arg("-d").arg(validated_path);
         }
 
-        let output = cmd.output().map_err(|e| format!("Failed to run gofmt: {}", e))?;
+        let output = cmd
+            .output()
+            .map_err(|e| format!("Failed to run gofmt: {}", e))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -241,15 +270,23 @@ impl GolangProAgent {
             cmd.arg(validated_path);
         }
 
-        let output = cmd.output().map_err(|e| format!("Failed to run go vet: {}", e))?;
+        let output = cmd
+            .output()
+            .map_err(|e| format!("Failed to run go vet: {}", e))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
 
         if output.status.success() {
-            Ok(format!("Go vet passed\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Go vet passed\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         } else {
-            Ok(format!("Go vet found issues\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Go vet found issues\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         }
     }
 
@@ -263,15 +300,23 @@ impl GolangProAgent {
             cmd.current_dir(validated_path);
         }
 
-        let output = cmd.output().map_err(|e| format!("Failed to run go mod tidy: {}", e))?;
+        let output = cmd
+            .output()
+            .map_err(|e| format!("Failed to run go mod tidy: {}", e))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
 
         if output.status.success() {
-            Ok(format!("Go mod tidy succeeded\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Go mod tidy succeeded\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         } else {
-            Ok(format!("Go mod tidy failed\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Go mod tidy failed\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         }
     }
 }
@@ -283,17 +328,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let agent_id = if args.len() > 1 {
         args[1].clone()
     } else {
-        format!(
-            "golang-pro-{}",
-            Uuid::new_v4().to_string()[..8].to_string()
-        )
+        format!("golang-pro-{}", Uuid::new_v4().to_string()[..8].to_string())
     };
 
     println!("Starting Golang Pro Agent: {}", agent_id);
 
     let agent = GolangProAgent::new(agent_id.clone());
 
-    let path = format!("/org/dbusmcp/Agent/GolangPro/{}", agent_id.replace('-', "_"));
+    let path = format!(
+        "/org/dbusmcp/Agent/GolangPro/{}",
+        agent_id.replace('-', "_")
+    );
     let service_name = format!("org.dbusmcp.Agent.GolangPro.{}", agent_id.replace('-', "_"));
 
     let _conn = Builder::system()?

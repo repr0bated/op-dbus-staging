@@ -47,7 +47,8 @@ async fn main() -> Result<()> {
         let mut context = Context::new();
         context.set(
             "code".to_string(),
-            Value::String(r#"
+            Value::String(
+                r#"
     fn main() {
         println!("Hello, World!");
         let x = 42;
@@ -55,7 +56,9 @@ async fn main() -> Result<()> {
             println!("Positive number: {}", x);
         }
     }
-    "#.to_string())
+    "#
+                .to_string(),
+            ),
         );
 
         // Run the workflow

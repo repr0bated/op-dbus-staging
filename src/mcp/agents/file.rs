@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
-use zbus::{interface, connection::Builder, object_server::SignalEmitter};
+use zbus::{connection::Builder, interface, object_server::SignalEmitter};
 
 // Security configuration
 const ALLOWED_DIRECTORIES: &[&str] = &["/home", "/tmp", "/var/log", "/opt"];
@@ -362,7 +362,8 @@ impl FileAgent {
 
     /// Signal emitted when task completes
     #[zbus(signal)]
-    async fn task_completed(signal_emitter: &SignalEmitter<'_>, result: String) -> zbus::Result<()>;
+    async fn task_completed(signal_emitter: &SignalEmitter<'_>, result: String)
+        -> zbus::Result<()>;
 }
 
 #[tokio::main]

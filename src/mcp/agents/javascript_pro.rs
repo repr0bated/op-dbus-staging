@@ -1,11 +1,13 @@
 use serde::Deserialize;
 use std::process::Command;
 use uuid::Uuid;
-use zbus::{interface, connection::Builder, object_server::SignalEmitter};
+use zbus::{connection::Builder, interface, object_server::SignalEmitter};
 
 // Security configuration
 const ALLOWED_DIRECTORIES: &[&str] = &["/tmp", "/home", "/opt"];
-const FORBIDDEN_CHARS: &[char] = &['$', '`', ';', '&', '|', '>', '<', '(', ')', '{', '}', '\n', '\r'];
+const FORBIDDEN_CHARS: &[char] = &[
+    '$', '`', ';', '&', '|', '>', '<', '(', ')', '{', '}', '\n', '\r',
+];
 const MAX_PATH_LENGTH: usize = 4096;
 
 #[derive(Debug, Deserialize)]
@@ -79,7 +81,8 @@ impl JavascriptProAgent {
 
     /// Signal emitted when task completes
     #[zbus(signal)]
-    async fn task_completed(signal_emitter: &SignalEmitter<'_>, result: String) -> zbus::Result<()>;
+    async fn task_completed(signal_emitter: &SignalEmitter<'_>, result: String)
+        -> zbus::Result<()>;
 }
 
 impl JavascriptProAgent {
@@ -153,15 +156,23 @@ impl JavascriptProAgent {
             }
         }
 
-        let output = cmd.output().map_err(|e| format!("Failed to run node: {}", e))?;
+        let output = cmd
+            .output()
+            .map_err(|e| format!("Failed to run node: {}", e))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
 
         if output.status.success() {
-            Ok(format!("Node execution succeeded\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Node execution succeeded\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         } else {
-            Ok(format!("Node execution failed\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Node execution failed\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         }
     }
 
@@ -176,15 +187,23 @@ impl JavascriptProAgent {
 
         cmd.arg("--verbose");
 
-        let output = cmd.output().map_err(|e| format!("Failed to run jest: {}", e))?;
+        let output = cmd
+            .output()
+            .map_err(|e| format!("Failed to run jest: {}", e))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
 
         if output.status.success() {
-            Ok(format!("Tests passed\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Tests passed\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         } else {
-            Ok(format!("Tests failed\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Tests failed\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         }
     }
 
@@ -197,15 +216,23 @@ impl JavascriptProAgent {
             cmd.arg(validated_path);
         }
 
-        let output = cmd.output().map_err(|e| format!("Failed to run eslint: {}", e))?;
+        let output = cmd
+            .output()
+            .map_err(|e| format!("Failed to run eslint: {}", e))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
 
         if output.status.success() {
-            Ok(format!("ESLint passed\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "ESLint passed\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         } else {
-            Ok(format!("ESLint found issues\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "ESLint found issues\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         }
     }
 
@@ -218,15 +245,23 @@ impl JavascriptProAgent {
             cmd.arg("--check").arg("--write").arg(p);
         }
 
-        let output = cmd.output().map_err(|e| format!("Failed to run prettier: {}", e))?;
+        let output = cmd
+            .output()
+            .map_err(|e| format!("Failed to run prettier: {}", e))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
 
         if output.status.success() {
-            Ok(format!("Code formatted\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Code formatted\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         } else {
-            Ok(format!("Formatting issues\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Formatting issues\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         }
     }
 }
@@ -248,8 +283,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let agent = JavascriptProAgent::new(agent_id.clone());
 
-    let path = format!("/org/dbusmcp/Agent/JavascriptPro/{}", agent_id.replace('-', "_"));
-    let service_name = format!("org.dbusmcp.Agent.JavascriptPro.{}", agent_id.replace('-', "_"));
+    let path = format!(
+        "/org/dbusmcp/Agent/JavascriptPro/{}",
+        agent_id.replace('-', "_")
+    );
+    let service_name = format!(
+        "org.dbusmcp.Agent.JavascriptPro.{}",
+        agent_id.replace('-', "_")
+    );
 
     let _conn = Builder::system()?
         .name(service_name.as_str())?

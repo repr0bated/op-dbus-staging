@@ -86,12 +86,16 @@ base64 = "0.22"
 # HTTP client for AI integration
 reqwest = { version = "0.11", features = ["json"] }
 
+# Embed comprehensive-agents directory
+rust-embed = "8.4"
+
 # ML/Transformers (optional, for advanced vectorization)
 ort = { version = "2.0.0-rc.10", optional = true, features = ["download-binaries"] }
 tokenizers = { version = "0.20", optional = true }
 ndarray = { version = "0.16", optional = true }
 hf-hub = { version = "0.3", optional = true, features = ["tokio"] }
 indicatif = { version = "0.17", optional = true }
+quick-xml = { version = "0.38.4", features = ["serialize"] }
 
 [features]
 default = ["web"]
@@ -105,6 +109,8 @@ mcp = ["toml"]
 minimal = []
 # Enable streaming blockchain with Btrfs snapshots
 streaming-blockchain = []
+# Enable BTRFS cache optimization for blockchain
+cache = []
 # Enable experimental OpenFlow plugin integration
 openflow = []
 
@@ -214,11 +220,15 @@ required-features = ["mcp"]
 [[bin]]
 name = "mcp-chat"
 path = "src/mcp/chat_main.rs"
+
+[[bin]]
+name = "chat-orchestrator"
+path = "src/mcp/chat_orchestrator.rs"
 required-features = ["mcp"]
 
 [[bin]]
-name = "deepseek-chat"
-path = "src/deepseek_chat.rs"
+name = "ai-chat"
+path = "src/ai_chat.rs"
 required-features = ["mcp"]
 
 # NixOS Introspection Tool

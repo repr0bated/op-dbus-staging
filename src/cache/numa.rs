@@ -72,8 +72,8 @@ impl NumaTopology {
         let mut nodes = HashMap::new();
 
         // Find all node directories (node0, node1, etc.)
-        let entries = fs::read_dir(sys_node_path)
-            .context("Failed to read /sys/devices/system/node")?;
+        let entries =
+            fs::read_dir(sys_node_path).context("Failed to read /sys/devices/system/node")?;
 
         for entry in entries {
             let entry = entry?;
@@ -88,8 +88,12 @@ impl NumaTopology {
                     match Self::parse_node(&node_path, node_id) {
                         Ok(node) => {
                             if node.is_online() {
-                                debug!("Detected NUMA node {}: {} CPUs, {} MB RAM",
-                                    node_id, node.cpu_list.len(), node.memory_total_kb / 1024);
+                                debug!(
+                                    "Detected NUMA node {}: {} CPUs, {} MB RAM",
+                                    node_id,
+                                    node.cpu_list.len(),
+                                    node.memory_total_kb / 1024
+                                );
                                 nodes.insert(node_id, node);
                             }
                         }
@@ -109,8 +113,11 @@ impl NumaTopology {
         // Detect current node (which node is this process running on)
         let current_node = Self::detect_current_node();
 
-        info!("NUMA topology detected: {} nodes, current node: {:?}",
-            nodes.len(), current_node);
+        info!(
+            "NUMA topology detected: {} nodes, current node: {:?}",
+            nodes.len(),
+            current_node
+        );
 
         Ok(Self {
             nodes,
@@ -146,8 +153,7 @@ impl NumaTopology {
             return Ok(Vec::new());
         }
 
-        let content = fs::read_to_string(&cpulist_path)
-            .context("Failed to read cpulist")?;
+        let content = fs::read_to_string(&cpulist_path).context("Failed to read cpulist")?;
 
         let content = content.trim();
         if content.is_empty() {
@@ -192,8 +198,7 @@ impl NumaTopology {
             return Ok((0, 0));
         }
 
-        let content = fs::read_to_string(&meminfo_path)
-            .context("Failed to read meminfo")?;
+        let content = fs::read_to_string(&meminfo_path).context("Failed to read meminfo")?;
 
         let mut total_kb = 0u64;
         let mut free_kb = 0u64;
@@ -227,8 +232,7 @@ impl NumaTopology {
             return Ok(HashMap::new());
         }
 
-        let content = fs::read_to_string(&distance_path)
-            .context("Failed to read distance")?;
+        let content = fs::read_to_string(&distance_path).context("Failed to read distance")?;
 
         let mut distances = HashMap::new();
         let values: Vec<&str> = content.split_whitespace().collect();
@@ -277,7 +281,8 @@ impl NumaTopology {
         let cpu_list = (0..num_cpus).collect();
 
         // Estimate memory from /proc/meminfo
-        let (total_kb, free_kb) = Self::read_system_memory().unwrap_or((8 * 1024 * 1024, 4 * 1024 * 1024));
+        let (total_kb, free_kb) =
+            Self::read_system_memory().unwrap_or((8 * 1024 * 1024, 4 * 1024 * 1024));
 
         let mut distance_to_nodes = HashMap::new();
         distance_to_nodes.insert(0, 10); // Distance to self = 10 (standard)

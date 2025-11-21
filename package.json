@@ -1,7 +1,7 @@
 {
-  "name": "deepseek-netmaker-chat",
+  "name": "mcp-chat-server",
   "version": "1.0.0",
-  "description": "DeepSeek Chat Interface for Netmaker Network",
+  "description": "Model-Agnostic MCP Chat Interface for Network Management",
   "main": "chat-server.js",
   "scripts": {
     "start": "node chat-server.js",

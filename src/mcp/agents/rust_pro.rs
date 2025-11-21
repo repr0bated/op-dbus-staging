@@ -1,11 +1,13 @@
 use serde::Deserialize;
 use std::process::Command;
 use uuid::Uuid;
-use zbus::{interface, connection::Builder, object_server::SignalEmitter};
+use zbus::{connection::Builder, interface, object_server::SignalEmitter};
 
 // Security configuration
 const ALLOWED_DIRECTORIES: &[&str] = &["/tmp", "/home", "/opt"];
-const FORBIDDEN_CHARS: &[char] = &['$', '`', ';', '&', '|', '>', '<', '(', ')', '{', '}', '\n', '\r'];
+const FORBIDDEN_CHARS: &[char] = &[
+    '$', '`', ';', '&', '|', '>', '<', '(', ')', '{', '}', '\n', '\r',
+];
 const MAX_PATH_LENGTH: usize = 4096;
 
 #[derive(Debug, Deserialize)]
@@ -56,7 +58,9 @@ impl RustProAgent {
         let result = match task.operation.as_str() {
             "check" => self.cargo_check(task.path.as_deref(), task.features.as_deref()),
             "clippy" => self.cargo_clippy(task.path.as_deref(), task.features.as_deref()),
-            "build" => self.cargo_build(task.path.as_deref(), task.features.as_deref(), task.release),
+            "build" => {
+                self.cargo_build(task.path.as_deref(), task.features.as_deref(), task.release)
+            }
             "test" => self.cargo_test(task.path.as_deref(), task.features.as_deref(), task.release),
             _ => Err(format!("Unknown Rust operation: {}", task.operation)),
         };
@@ -81,7 +85,8 @@ impl RustProAgent {
 
     /// Signal emitted when task completes
     #[zbus(signal)]
-    async fn task_completed(signal_emitter: &SignalEmitter<'_>, result: String) -> zbus::Result<()>;
+    async fn task_completed(signal_emitter: &SignalEmitter<'_>, result: String)
+        -> zbus::Result<()>;
 }
 
 impl RustProAgent {
@@ -153,15 +158,23 @@ impl RustProAgent {
             cmd.current_dir(validated_path);
         }
 
-        let output = cmd.output().map_err(|e| format!("Failed to run cargo check: {}", e))?;
+        let output = cmd
+            .output()
+            .map_err(|e| format!("Failed to run cargo check: {}", e))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
 
         if output.status.success() {
-            Ok(format!("Check passed\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Check passed\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         } else {
-            Ok(format!("Check failed\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Check failed\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         }
     }
 
@@ -181,19 +194,32 @@ impl RustProAgent {
             cmd.current_dir(validated_path);
         }
 
-        let output = cmd.output().map_err(|e| format!("Failed to run cargo clippy: {}", e))?;
+        let output = cmd
+            .output()
+            .map_err(|e| format!("Failed to run cargo clippy: {}", e))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
 
         if output.status.success() {
-            Ok(format!("Clippy passed\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Clippy passed\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         } else {
-            Ok(format!("Clippy failed\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Clippy failed\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         }
     }
 
-    fn cargo_build(&self, path: Option<&str>, features: Option<&str>, release: bool) -> Result<String, String> {
+    fn cargo_build(
+        &self,
+        path: Option<&str>,
+        features: Option<&str>,
+        release: bool,
+    ) -> Result<String, String> {
         let mut cmd = Command::new("cargo");
         cmd.arg("build");
 
@@ -211,19 +237,32 @@ impl RustProAgent {
             cmd.current_dir(validated_path);
         }
 
-        let output = cmd.output().map_err(|e| format!("Failed to run cargo build: {}", e))?;
+        let output = cmd
+            .output()
+            .map_err(|e| format!("Failed to run cargo build: {}", e))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
 
         if output.status.success() {
-            Ok(format!("Build succeeded\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Build succeeded\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         } else {
-            Ok(format!("Build failed\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Build failed\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         }
     }
 
-    fn cargo_test(&self, path: Option<&str>, features: Option<&str>, release: bool) -> Result<String, String> {
+    fn cargo_test(
+        &self,
+        path: Option<&str>,
+        features: Option<&str>,
+        release: bool,
+    ) -> Result<String, String> {
         let mut cmd = Command::new("cargo");
         cmd.arg("test");
 
@@ -241,15 +280,23 @@ impl RustProAgent {
             cmd.current_dir(validated_path);
         }
 
-        let output = cmd.output().map_err(|e| format!("Failed to run cargo test: {}", e))?;
+        let output = cmd
+            .output()
+            .map_err(|e| format!("Failed to run cargo test: {}", e))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
 
         if output.status.success() {
-            Ok(format!("Tests passed\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Tests passed\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         } else {
-            Ok(format!("Tests failed\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Tests failed\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         }
     }
 }
@@ -261,10 +308,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let agent_id = if args.len() > 1 {
         args[1].clone()
     } else {
-        format!(
-            "rust-pro-{}",
-            Uuid::new_v4().to_string()[..8].to_string()
-        )
+        format!("rust-pro-{}", Uuid::new_v4().to_string()[..8].to_string())
     };
 
     println!("Starting Rust Pro Agent: {}", agent_id);

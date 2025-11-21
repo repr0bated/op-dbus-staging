@@ -1,11 +1,13 @@
 use serde::Deserialize;
 use std::process::Command;
 use uuid::Uuid;
-use zbus::{interface, connection::Builder, object_server::SignalEmitter};
+use zbus::{connection::Builder, interface, object_server::SignalEmitter};
 
 // Security configuration
 const ALLOWED_DIRECTORIES: &[&str] = &["/tmp", "/home", "/opt"];
-const FORBIDDEN_CHARS: &[char] = &['$', '`', ';', '&', '|', '>', '<', '(', ')', '{', '}', '\n', '\r'];
+const FORBIDDEN_CHARS: &[char] = &[
+    '$', '`', ';', '&', '|', '>', '<', '(', ')', '{', '}', '\n', '\r',
+];
 const MAX_PATH_LENGTH: usize = 4096;
 
 #[derive(Debug, Deserialize)]
@@ -78,7 +80,8 @@ impl SqlProAgent {
 
     /// Signal emitted when task completes
     #[zbus(signal)]
-    async fn task_completed(signal_emitter: &SignalEmitter<'_>, result: String) -> zbus::Result<()>;
+    async fn task_completed(signal_emitter: &SignalEmitter<'_>, result: String)
+        -> zbus::Result<()>;
 }
 
 impl SqlProAgent {
@@ -146,15 +149,23 @@ impl SqlProAgent {
             return Err("Path required for formatting".to_string());
         }
 
-        let output = cmd.output().map_err(|e| format!("Failed to run sqlfluff format: {}", e))?;
+        let output = cmd
+            .output()
+            .map_err(|e| format!("Failed to run sqlfluff format: {}", e))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
 
         if output.status.success() {
-            Ok(format!("SQL formatted\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "SQL formatted\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         } else {
-            Ok(format!("Formatting failed\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Formatting failed\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         }
     }
 
@@ -174,15 +185,23 @@ impl SqlProAgent {
             return Err("Path required for linting".to_string());
         }
 
-        let output = cmd.output().map_err(|e| format!("Failed to run sqlfluff lint: {}", e))?;
+        let output = cmd
+            .output()
+            .map_err(|e| format!("Failed to run sqlfluff lint: {}", e))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
 
         if output.status.success() {
-            Ok(format!("SQL linting passed\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "SQL linting passed\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         } else {
-            Ok(format!("SQL linting found issues\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "SQL linting found issues\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         }
     }
 
@@ -202,15 +221,23 @@ impl SqlProAgent {
             return Err("Path required for validation".to_string());
         }
 
-        let output = cmd.output().map_err(|e| format!("Failed to run sqlfluff parse: {}", e))?;
+        let output = cmd
+            .output()
+            .map_err(|e| format!("Failed to run sqlfluff parse: {}", e))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
 
         if output.status.success() {
-            Ok(format!("SQL validation passed\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "SQL validation passed\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         } else {
-            Ok(format!("SQL validation failed\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "SQL validation failed\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         }
     }
 }
@@ -222,10 +249,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let agent_id = if args.len() > 1 {
         args[1].clone()
     } else {
-        format!(
-            "sql-pro-{}",
-            Uuid::new_v4().to_string()[..8].to_string()
-        )
+        format!("sql-pro-{}", Uuid::new_v4().to_string()[..8].to_string())
     };
 
     println!("Starting SQL Pro Agent: {}", agent_id);

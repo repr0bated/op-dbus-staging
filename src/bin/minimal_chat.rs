@@ -1,10 +1,7 @@
 // Minimal AI chat server - bypasses broken mcp modules
 // Run with: cargo run --bin minimal_chat --features web
 
-use axum::{
-    routing::get,
-    Router,
-};
+use axum::{routing::get, Router};
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use tower_http::services::ServeDir;
@@ -36,9 +33,7 @@ async fn main() -> anyhow::Result<()> {
     let app = Router::new()
         .route(
             "/",
-            get(|| async {
-                axum::response::Redirect::permanent("/index.html")
-            }),
+            get(|| async { axum::response::Redirect::permanent("/index.html") }),
         )
         .nest_service("/", ServeDir::new(&web_dir));
 

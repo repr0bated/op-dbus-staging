@@ -1,11 +1,13 @@
 use serde::Deserialize;
 use std::process::Command;
 use uuid::Uuid;
-use zbus::{interface, connection::Builder, object_server::SignalEmitter};
+use zbus::{connection::Builder, interface, object_server::SignalEmitter};
 
 // Security configuration
 const ALLOWED_DIRECTORIES: &[&str] = &["/tmp", "/home", "/opt"];
-const FORBIDDEN_CHARS: &[char] = &['$', '`', ';', '&', '|', '>', '<', '(', ')', '{', '}', '\n', '\r'];
+const FORBIDDEN_CHARS: &[char] = &[
+    '$', '`', ';', '&', '|', '>', '<', '(', ')', '{', '}', '\n', '\r',
+];
 const MAX_PATH_LENGTH: usize = 4096;
 
 #[derive(Debug, Deserialize)]
@@ -80,7 +82,8 @@ impl PythonProAgent {
 
     /// Signal emitted when task completes
     #[zbus(signal)]
-    async fn task_completed(signal_emitter: &SignalEmitter<'_>, result: String) -> zbus::Result<()>;
+    async fn task_completed(signal_emitter: &SignalEmitter<'_>, result: String)
+        -> zbus::Result<()>;
 }
 
 impl PythonProAgent {
@@ -156,15 +159,23 @@ impl PythonProAgent {
             return Err("Path required for python run".to_string());
         }
 
-        let output = cmd.output().map_err(|e| format!("Failed to run python: {}", e))?;
+        let output = cmd
+            .output()
+            .map_err(|e| format!("Failed to run python: {}", e))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
 
         if output.status.success() {
-            Ok(format!("Python execution succeeded\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Python execution succeeded\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         } else {
-            Ok(format!("Python execution failed\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Python execution failed\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         }
     }
 
@@ -178,15 +189,23 @@ impl PythonProAgent {
 
         cmd.arg("-v");
 
-        let output = cmd.output().map_err(|e| format!("Failed to run pytest: {}", e))?;
+        let output = cmd
+            .output()
+            .map_err(|e| format!("Failed to run pytest: {}", e))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
 
         if output.status.success() {
-            Ok(format!("Tests passed\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Tests passed\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         } else {
-            Ok(format!("Tests failed\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Tests failed\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         }
     }
 
@@ -200,13 +219,18 @@ impl PythonProAgent {
             return Err("Path required for pylint".to_string());
         }
 
-        let output = cmd.output().map_err(|e| format!("Failed to run pylint: {}", e))?;
+        let output = cmd
+            .output()
+            .map_err(|e| format!("Failed to run pylint: {}", e))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
 
         // Pylint returns non-zero for issues, but we want to show the output
-        Ok(format!("Pylint output\nstdout: {}\nstderr: {}", stdout, stderr))
+        Ok(format!(
+            "Pylint output\nstdout: {}\nstderr: {}",
+            stdout, stderr
+        ))
     }
 
     fn mypy_check(&self, path: Option<&str>) -> Result<String, String> {
@@ -219,15 +243,23 @@ impl PythonProAgent {
             return Err("Path required for mypy".to_string());
         }
 
-        let output = cmd.output().map_err(|e| format!("Failed to run mypy: {}", e))?;
+        let output = cmd
+            .output()
+            .map_err(|e| format!("Failed to run mypy: {}", e))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
 
         if output.status.success() {
-            Ok(format!("Mypy passed\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Mypy passed\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         } else {
-            Ok(format!("Mypy found issues\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Mypy found issues\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         }
     }
 
@@ -243,15 +275,23 @@ impl PythonProAgent {
 
         cmd.arg("--check").arg("--diff");
 
-        let output = cmd.output().map_err(|e| format!("Failed to run black: {}", e))?;
+        let output = cmd
+            .output()
+            .map_err(|e| format!("Failed to run black: {}", e))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
 
         if output.status.success() {
-            Ok(format!("Code is properly formatted\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Code is properly formatted\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         } else {
-            Ok(format!("Code needs formatting\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Code needs formatting\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         }
     }
 }
@@ -263,17 +303,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let agent_id = if args.len() > 1 {
         args[1].clone()
     } else {
-        format!(
-            "python-pro-{}",
-            Uuid::new_v4().to_string()[..8].to_string()
-        )
+        format!("python-pro-{}", Uuid::new_v4().to_string()[..8].to_string())
     };
 
     println!("Starting Python Pro Agent: {}", agent_id);
 
     let agent = PythonProAgent::new(agent_id.clone());
 
-    let path = format!("/org/dbusmcp/Agent/PythonPro/{}", agent_id.replace('-', "_"));
+    let path = format!(
+        "/org/dbusmcp/Agent/PythonPro/{}",
+        agent_id.replace('-', "_")
+    );
     let service_name = format!("org.dbusmcp.Agent.PythonPro.{}", agent_id.replace('-', "_"));
 
     let _conn = Builder::system()?

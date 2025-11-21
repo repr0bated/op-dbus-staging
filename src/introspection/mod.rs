@@ -55,24 +55,24 @@ pub struct SystemConfiguration {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CpuMitigation {
-    pub vulnerability: String,  // e.g., "spectre_v2", "meltdown"
-    pub status: String,         // e.g., "Mitigation: ...", "Vulnerable", "Not affected"
+    pub vulnerability: String, // e.g., "spectre_v2", "meltdown"
+    pub status: String,        // e.g., "Mitigation: ...", "Vulnerable", "Not affected"
     pub mitigation_active: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct VirtualizationConfig {
-    pub hypervisor: String,      // "kvm", "qemu", "xen", etc.
-    pub vm_count: usize,         // Number of VMs
-    pub cpu_passthrough: bool,   // Host CPU features passed to guests
-    pub nested_virt: bool,       // Nested virtualization enabled
+    pub hypervisor: String,    // "kvm", "qemu", "xen", etc.
+    pub vm_count: usize,       // Number of VMs
+    pub cpu_passthrough: bool, // Host CPU features passed to guests
+    pub nested_virt: bool,     // Nested virtualization enabled
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct HardwareInfo {
-    pub vendor: String,          // e.g., "Samsung", "Dell", "HP"
-    pub model: String,           // e.g., "360 Pro", "XPS 13"
-    pub bios_version: String,    // For tracking buggy BIOS
+    pub vendor: String,            // e.g., "Samsung", "Dell", "HP"
+    pub model: String,             // e.g., "360 Pro", "XPS 13"
+    pub bios_version: String,      // For tracking buggy BIOS
     pub known_issues: Vec<String>, // Known hardware issues
 }
 
@@ -112,17 +112,17 @@ pub enum ManagementStatus {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ConversionCandidate {
     pub service_name: String,
-    pub service_type: String, // systemd, docker, etc.
+    pub service_type: String,      // systemd, docker, etc.
     pub current_interface: String, // how it's currently managed
-    pub dbus_opportunity: String, // why it could use D-Bus
+    pub dbus_opportunity: String,  // why it could use D-Bus
     pub complexity: ConversionComplexity,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum ConversionComplexity {
-    Easy,      // Just needs wrapper
-    Medium,    // Requires some refactoring
-    Hard,      // Significant work needed
+    Easy,   // Just needs wrapper
+    Medium, // Requires some refactoring
+    Hard,   // Significant work needed
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -190,15 +190,24 @@ impl SystemIntrospector {
 
         // Kernel command line
         let kernel_cmdline = self.read_kernel_cmdline()?;
-        println!("    ✓ Read kernel command line ({} parameters)", kernel_cmdline.len());
+        println!(
+            "    ✓ Read kernel command line ({} parameters)",
+            kernel_cmdline.len()
+        );
 
         // CPU mitigations
         let cpu_mitigations = self.read_cpu_mitigations()?;
-        println!("    ✓ Checked CPU mitigations ({} vulnerabilities)", cpu_mitigations.len());
+        println!(
+            "    ✓ Checked CPU mitigations ({} vulnerabilities)",
+            cpu_mitigations.len()
+        );
 
         // Loaded modules
         let loaded_modules = self.read_loaded_modules()?;
-        println!("    ✓ Read loaded modules ({} modules)", loaded_modules.len());
+        println!(
+            "    ✓ Read loaded modules ({} modules)",
+            loaded_modules.len()
+        );
 
         // Virtualization config
         let virtualization = self.detect_virtualization()?;
@@ -208,23 +217,36 @@ impl SystemIntrospector {
 
         // Hardware info
         let hardware = self.read_hardware_info()?;
-        println!("    ✓ Read hardware info ({} {})", hardware.vendor, hardware.model);
+        println!(
+            "    ✓ Read hardware info ({} {})",
+            hardware.vendor, hardware.model
+        );
 
         // CPU feature analysis (detect hidden/locked BIOS features)
         let cpu_features = match CpuFeatureAnalyzer::new().analyze() {
             Ok(analysis) => {
                 let locked_count = analysis.bios_locks.len();
-                let disabled_count = analysis.features.iter()
-                    .filter(|f| matches!(f.status, FeatureStatus::DisabledByBios | FeatureStatus::LockedByBios))
+                let disabled_count = analysis
+                    .features
+                    .iter()
+                    .filter(|f| {
+                        matches!(
+                            f.status,
+                            FeatureStatus::DisabledByBios | FeatureStatus::LockedByBios
+                        )
+                    })
                     .count();
 
                 if locked_count > 0 || disabled_count > 0 {
-                    println!("    ⚠️  CPU feature analysis: {} disabled, {} BIOS-locked", disabled_count, locked_count);
+                    println!(
+                        "    ⚠️  CPU feature analysis: {} disabled, {} BIOS-locked",
+                        disabled_count, locked_count
+                    );
                 } else {
                     println!("    ✓ CPU feature analysis complete");
                 }
                 Some(analysis)
-            },
+            }
             Err(e) => {
                 println!("    ⚠️  CPU feature analysis failed: {}", e);
                 None
@@ -243,13 +265,10 @@ impl SystemIntrospector {
 
     /// Read kernel command line from /proc/cmdline
     fn read_kernel_cmdline(&self) -> Result<Vec<String>> {
-        let cmdline = std::fs::read_to_string("/proc/cmdline")
-            .context("Failed to read /proc/cmdline")?;
+        let cmdline =
+            std::fs::read_to_string("/proc/cmdline").context("Failed to read /proc/cmdline")?;
 
-        Ok(cmdline
-            .split_whitespace()
-            .map(|s| s.to_string())
-            .collect())
+        Ok(cmdline.split_whitespace().map(|s| s.to_string()).collect())
     }
 
     /// Read CPU vulnerability mitigations from /sys
@@ -265,11 +284,10 @@ impl SystemIntrospector {
         for entry in std::fs::read_dir(vulnerabilities_dir)? {
             let entry = entry?;
             let vulnerability = entry.file_name().to_string_lossy().to_string();
-            let status = std::fs::read_to_string(entry.path())?
-                .trim()
-                .to_string();
+            let status = std::fs::read_to_string(entry.path())?.trim().to_string();
 
-            let mitigation_active = status.contains("Mitigation:") || status.contains("Not affected");
+            let mitigation_active =
+                status.contains("Mitigation:") || status.contains("Not affected");
 
             mitigations.push(CpuMitigation {
                 vulnerability,
@@ -283,8 +301,8 @@ impl SystemIntrospector {
 
     /// Read loaded kernel modules from /proc/modules
     fn read_loaded_modules(&self) -> Result<Vec<String>> {
-        let modules = std::fs::read_to_string("/proc/modules")
-            .context("Failed to read /proc/modules")?;
+        let modules =
+            std::fs::read_to_string("/proc/modules").context("Failed to read /proc/modules")?;
 
         Ok(modules
             .lines()
@@ -309,8 +327,8 @@ impl SystemIntrospector {
         let vm_count = self.count_running_vms()?;
 
         // Check if CPU virtualization features are available
-        let cpuinfo = std::fs::read_to_string("/proc/cpuinfo")
-            .context("Failed to read /proc/cpuinfo")?;
+        let cpuinfo =
+            std::fs::read_to_string("/proc/cpuinfo").context("Failed to read /proc/cpuinfo")?;
         let cpu_passthrough = cpuinfo.contains("vmx") || cpuinfo.contains("svm");
 
         // Check for nested virtualization
@@ -326,10 +344,7 @@ impl SystemIntrospector {
 
     fn count_running_vms(&self) -> Result<usize> {
         // Count QEMU processes
-        let output = Command::new("pgrep")
-            .arg("-c")
-            .arg("qemu")
-            .output();
+        let output = Command::new("pgrep").arg("-c").arg("qemu").output();
 
         match output {
             Ok(out) if out.status.success() => {
@@ -361,9 +376,15 @@ impl SystemIntrospector {
     /// Read hardware information
     fn read_hardware_info(&self) -> Result<HardwareInfo> {
         // Read DMI info
-        let vendor = self.read_dmi_field("sys_vendor").unwrap_or_else(|_| "Unknown".to_string());
-        let model = self.read_dmi_field("product_name").unwrap_or_else(|_| "Unknown".to_string());
-        let bios_version = self.read_dmi_field("bios_version").unwrap_or_else(|_| "Unknown".to_string());
+        let vendor = self
+            .read_dmi_field("sys_vendor")
+            .unwrap_or_else(|_| "Unknown".to_string());
+        let model = self
+            .read_dmi_field("product_name")
+            .unwrap_or_else(|_| "Unknown".to_string());
+        let bios_version = self
+            .read_dmi_field("bios_version")
+            .unwrap_or_else(|_| "Unknown".to_string());
 
         // Check for known problematic hardware
         let known_issues = self.check_known_hardware_issues(&vendor, &model);
@@ -414,20 +435,24 @@ impl SystemIntrospector {
 
         // Use existing auto_plugin discovery for system services (if MCP enabled)
         #[cfg(feature = "mcp")]
-        let system_services = match crate::state::auto_plugin::PluginDiscovery::discover_services().await {
-            Ok(services) => {
-                println!("    ✓ Found {} services on system bus", services.len());
-                services
-            }
-            Err(e) => {
-                log::warn!("Failed to use auto_plugin discovery: {}, falling back", e);
-                // Fallback to direct discovery
-                let system_conn = Connection::system().await?;
-                let services = self.list_dbus_names(&system_conn).await?;
-                println!("    ✓ Found {} services on system bus (fallback)", services.len());
-                services
-            }
-        };
+        let system_services =
+            match crate::state::auto_plugin::PluginDiscovery::discover_services().await {
+                Ok(services) => {
+                    println!("    ✓ Found {} services on system bus", services.len());
+                    services
+                }
+                Err(e) => {
+                    log::warn!("Failed to use auto_plugin discovery: {}, falling back", e);
+                    // Fallback to direct discovery
+                    let system_conn = Connection::system().await?;
+                    let services = self.list_dbus_names(&system_conn).await?;
+                    println!(
+                        "    ✓ Found {} services on system bus (fallback)",
+                        services.len()
+                    );
+                    services
+                }
+            };
 
         // Direct discovery when MCP is not available
         #[cfg(not(feature = "mcp"))]
@@ -604,7 +629,13 @@ impl SystemIntrospector {
     /// Get all systemd units
     fn get_systemd_units(&self) -> Result<Vec<String>> {
         let output = Command::new("systemctl")
-            .args(["list-units", "--type=service", "--all", "--no-pager", "--no-legend"])
+            .args([
+                "list-units",
+                "--type=service",
+                "--all",
+                "--no-pager",
+                "--no-legend",
+            ])
             .output()
             .context("Failed to execute systemctl")?;
 
@@ -704,7 +735,10 @@ impl SystemIntrospector {
         println!("──────────────────────────────────────────────────────────────");
         println!("  Vendor:       {}", report.system_config.hardware.vendor);
         println!("  Model:        {}", report.system_config.hardware.model);
-        println!("  BIOS Version: {}", report.system_config.hardware.bios_version);
+        println!(
+            "  BIOS Version: {}",
+            report.system_config.hardware.bios_version
+        );
 
         if !report.system_config.hardware.known_issues.is_empty() {
             println!("\n  ⚠️  KNOWN HARDWARE ISSUES:");
@@ -715,24 +749,50 @@ impl SystemIntrospector {
 
         // Virtualization info
         if let Some(virt) = &report.system_config.virtualization {
-            println!("\n  Virtualization: {} ({} VMs running)", virt.hypervisor, virt.vm_count);
-            println!("    CPU Passthrough: {}", if virt.cpu_passthrough { "✓ Yes" } else { "⊗ No" });
-            println!("    Nested Virt:     {}", if virt.nested_virt { "✓ Yes" } else { "⊗ No" });
+            println!(
+                "\n  Virtualization: {} ({} VMs running)",
+                virt.hypervisor, virt.vm_count
+            );
+            println!(
+                "    CPU Passthrough: {}",
+                if virt.cpu_passthrough {
+                    "✓ Yes"
+                } else {
+                    "⊗ No"
+                }
+            );
+            println!(
+                "    Nested Virt:     {}",
+                if virt.nested_virt {
+                    "✓ Yes"
+                } else {
+                    "⊗ No"
+                }
+            );
         }
         println!();
 
         // CPU Mitigations
         println!("🛡️  CPU VULNERABILITY MITIGATIONS");
         println!("──────────────────────────────────────────────────────────────");
-        let active_mitigations = report.system_config.cpu_mitigations
+        let active_mitigations = report
+            .system_config
+            .cpu_mitigations
             .iter()
             .filter(|m| m.mitigation_active)
             .count();
         let total_vulnerabilities = report.system_config.cpu_mitigations.len();
-        println!("  {} of {} vulnerabilities mitigated\n", active_mitigations, total_vulnerabilities);
+        println!(
+            "  {} of {} vulnerabilities mitigated\n",
+            active_mitigations, total_vulnerabilities
+        );
 
         for mitigation in &report.system_config.cpu_mitigations {
-            let status_icon = if mitigation.mitigation_active { "✓" } else { "⚠" };
+            let status_icon = if mitigation.mitigation_active {
+                "✓"
+            } else {
+                "⚠"
+            };
             let vuln_name = mitigation.vulnerability.replace('_', " ");
             println!("  {} {}: {}", status_icon, vuln_name, mitigation.status);
         }
@@ -742,12 +802,22 @@ impl SystemIntrospector {
         if let Some(cpu_analysis) = &report.system_config.cpu_features {
             println!("🔓 CPU FEATURES & BIOS LOCKS");
             println!("──────────────────────────────────────────────────────────────");
-            println!("  CPU: {} (Family {})", cpu_analysis.cpu_model.model_name, cpu_analysis.cpu_model.family);
+            println!(
+                "  CPU: {} (Family {})",
+                cpu_analysis.cpu_model.model_name, cpu_analysis.cpu_model.family
+            );
             println!("  Microcode: {}\n", cpu_analysis.cpu_model.microcode);
 
             // Show disabled/locked features first (most important)
-            let critical_features: Vec<_> = cpu_analysis.features.iter()
-                .filter(|f| matches!(f.status, FeatureStatus::DisabledByBios | FeatureStatus::LockedByBios))
+            let critical_features: Vec<_> = cpu_analysis
+                .features
+                .iter()
+                .filter(|f| {
+                    matches!(
+                        f.status,
+                        FeatureStatus::DisabledByBios | FeatureStatus::LockedByBios
+                    )
+                })
                 .collect();
 
             if !critical_features.is_empty() {
@@ -763,7 +833,10 @@ impl SystemIntrospector {
                         FeatureStatus::DisabledByBios => "Disabled by BIOS",
                         _ => "Unknown",
                     };
-                    println!("    {} {} ({}): {}", status_icon, feature.name, feature.technical_name, status_text);
+                    println!(
+                        "    {} {} ({}): {}",
+                        status_icon, feature.name, feature.technical_name, status_text
+                    );
                 }
                 println!();
             }
@@ -781,7 +854,9 @@ impl SystemIntrospector {
             }
 
             // Show enabled features
-            let enabled_features: Vec<_> = cpu_analysis.features.iter()
+            let enabled_features: Vec<_> = cpu_analysis
+                .features
+                .iter()
                 .filter(|f| matches!(f.status, FeatureStatus::Enabled))
                 .collect();
 
@@ -803,7 +878,10 @@ impl SystemIntrospector {
                         Priority::Medium => "🟡",
                         Priority::Low => "🟢",
                     };
-                    println!("    {} {} - {:?} Priority", priority_icon, rec.feature, rec.priority);
+                    println!(
+                        "    {} {} - {:?} Priority",
+                        priority_icon, rec.feature, rec.priority
+                    );
                     println!("       Reason: {}", rec.reason);
                     println!("       Benefit: {}", rec.benefit);
                     println!("       Action: {}", rec.action);
@@ -817,49 +895,76 @@ impl SystemIntrospector {
         println!("──────────────────────────────────────────────────────────────");
 
         // Filter interesting kernel parameters
-        let interesting_params: Vec<_> = report.system_config.kernel_cmdline
+        let interesting_params: Vec<_> = report
+            .system_config
+            .kernel_cmdline
             .iter()
             .filter(|p| {
-                p.contains("acpi") ||
-                p.contains("idle") ||
-                p.contains("aspm") ||
-                p.contains("mitigation") ||
-                p.contains("pci") ||
-                p.contains("i915") ||
-                p.contains("kvm")
+                p.contains("acpi")
+                    || p.contains("idle")
+                    || p.contains("aspm")
+                    || p.contains("mitigation")
+                    || p.contains("pci")
+                    || p.contains("i915")
+                    || p.contains("kvm")
             })
             .collect();
 
         if !interesting_params.is_empty() {
-            println!("  Critical kernel parameters ({}total):\n", report.system_config.kernel_cmdline.len());
+            println!(
+                "  Critical kernel parameters ({}total):\n",
+                report.system_config.kernel_cmdline.len()
+            );
             for param in &interesting_params {
                 println!("    • {}", param);
             }
         } else {
             println!("  No critical kernel parameters detected");
-            println!("  (Total {} parameters)", report.system_config.kernel_cmdline.len());
+            println!(
+                "  (Total {} parameters)",
+                report.system_config.kernel_cmdline.len()
+            );
         }
         println!();
 
         // Summary
         println!("📊 SERVICE MANAGEMENT SUMMARY");
         println!("──────────────────────────────────────────────────────────────");
-        println!("  Total D-Bus services:    {}", report.summary.total_dbus_services);
-        println!("  ✓ Managed services:      {}", report.summary.managed_services);
-        println!("  ⊗ Unmanaged services:    {}", report.summary.unmanaged_services);
-        println!("  🔄 Conversion candidates: {}", report.summary.conversion_candidates);
-        println!("  Coverage:                {:.1}%\n", report.summary.management_coverage);
+        println!(
+            "  Total D-Bus services:    {}",
+            report.summary.total_dbus_services
+        );
+        println!(
+            "  ✓ Managed services:      {}",
+            report.summary.managed_services
+        );
+        println!(
+            "  ⊗ Unmanaged services:    {}",
+            report.summary.unmanaged_services
+        );
+        println!(
+            "  🔄 Conversion candidates: {}",
+            report.summary.conversion_candidates
+        );
+        println!(
+            "  Coverage:                {:.1}%\n",
+            report.summary.management_coverage
+        );
 
         // Managed D-Bus services
         if !report.managed_dbus_services.is_empty() {
             println!("✅ MANAGED D-BUS SERVICES");
             println!("──────────────────────────────────────────────────────────────");
 
-            let built_in: Vec<_> = report.managed_dbus_services.iter()
+            let built_in: Vec<_> = report
+                .managed_dbus_services
+                .iter()
                 .filter(|s| matches!(s.management_status, ManagementStatus::ManagedBuiltIn { .. }))
                 .collect();
 
-            let auto_gen: Vec<_> = report.managed_dbus_services.iter()
+            let auto_gen: Vec<_> = report
+                .managed_dbus_services
+                .iter()
                 .filter(|s| matches!(s.management_status, ManagementStatus::ManagedAuto))
                 .collect();
 
@@ -867,7 +972,9 @@ impl SystemIntrospector {
             if !built_in.is_empty() {
                 println!("  Built-in Plugins (read-write):");
                 for service in built_in {
-                    if let ManagementStatus::ManagedBuiltIn { plugin_name } = &service.management_status {
+                    if let ManagementStatus::ManagedBuiltIn { plugin_name } =
+                        &service.management_status
+                    {
                         println!("    ✓ {} → {}", service.service_name, plugin_name);
                     }
                 }
@@ -880,7 +987,10 @@ impl SystemIntrospector {
                 for service in auto_gen {
                     println!("    🤖 {}", service.service_name);
                     if let Some(plugin) = &service.recommended_plugin {
-                        println!("       Can become: {} plugin (with semantic mapping)", plugin);
+                        println!(
+                            "       Can become: {} plugin (with semantic mapping)",
+                            plugin
+                        );
                     }
                 }
                 println!();

@@ -192,7 +192,8 @@ impl LxcPlugin {
                 if line.contains("link-netnsid") || line.contains("@if") {
                     // Parse the peer interface name from the host side
                     // Format: "veth<random>@if<index>"
-                    let veth_interfaces = crate::native::rtnetlink_helpers::list_veth_interfaces().await?;
+                    let veth_interfaces =
+                        crate::native::rtnetlink_helpers::list_veth_interfaces().await?;
 
                     // Find veth that matches this container's namespace
                     for veth_name in veth_interfaces {
@@ -254,7 +255,12 @@ impl LxcPlugin {
 
         if let Some(golden_image_name) = golden_image {
             // BTRFS snapshot path - instant container creation
-            return Self::create_container_from_btrfs_snapshot(container, golden_image_name, &bridge).await;
+            return Self::create_container_from_btrfs_snapshot(
+                container,
+                golden_image_name,
+                &bridge,
+            )
+            .await;
         }
 
         // Traditional tar.zst template path (fallback)
@@ -367,22 +373,34 @@ impl LxcPlugin {
         ]);
 
         // Optional: Start on boot
-        if let Some(onboot) = props.and_then(|p| p.get("onboot")).and_then(|v| v.as_bool()) {
+        if let Some(onboot) = props
+            .and_then(|p| p.get("onboot"))
+            .and_then(|v| v.as_bool())
+        {
             cmd.args(["--onboot", if onboot { "1" } else { "0" }]);
         }
 
         // Optional: Protection (prevent accidental deletion)
-        if let Some(protection) = props.and_then(|p| p.get("protection")).and_then(|v| v.as_bool()) {
+        if let Some(protection) = props
+            .and_then(|p| p.get("protection"))
+            .and_then(|v| v.as_bool())
+        {
             cmd.args(["--protection", if protection { "1" } else { "0" }]);
         }
 
         // Optional: Nameserver
-        if let Some(nameserver) = props.and_then(|p| p.get("nameserver")).and_then(|v| v.as_str()) {
+        if let Some(nameserver) = props
+            .and_then(|p| p.get("nameserver"))
+            .and_then(|v| v.as_str())
+        {
             cmd.args(["--nameserver", nameserver]);
         }
 
         // Optional: Searchdomain
-        if let Some(searchdomain) = props.and_then(|p| p.get("searchdomain")).and_then(|v| v.as_str()) {
+        if let Some(searchdomain) = props
+            .and_then(|p| p.get("searchdomain"))
+            .and_then(|v| v.as_str())
+        {
             cmd.args(["--searchdomain", searchdomain]);
         }
 
@@ -595,19 +613,34 @@ features: {}
         // Add optional properties
         let mut config = config_content;
 
-        if let Some(onboot) = props.and_then(|p| p.get("onboot")).and_then(|v| v.as_bool()) {
+        if let Some(onboot) = props
+            .and_then(|p| p.get("onboot"))
+            .and_then(|v| v.as_bool())
+        {
             config.push_str(&format!("onboot: {}\n", if onboot { "1" } else { "0" }));
         }
 
-        if let Some(protection) = props.and_then(|p| p.get("protection")).and_then(|v| v.as_bool()) {
-            config.push_str(&format!("protection: {}\n", if protection { "1" } else { "0" }));
+        if let Some(protection) = props
+            .and_then(|p| p.get("protection"))
+            .and_then(|v| v.as_bool())
+        {
+            config.push_str(&format!(
+                "protection: {}\n",
+                if protection { "1" } else { "0" }
+            ));
         }
 
-        if let Some(nameserver) = props.and_then(|p| p.get("nameserver")).and_then(|v| v.as_str()) {
+        if let Some(nameserver) = props
+            .and_then(|p| p.get("nameserver"))
+            .and_then(|v| v.as_str())
+        {
             config.push_str(&format!("nameserver: {}\n", nameserver));
         }
 
-        if let Some(searchdomain) = props.and_then(|p| p.get("searchdomain")).and_then(|v| v.as_str()) {
+        if let Some(searchdomain) = props
+            .and_then(|p| p.get("searchdomain"))
+            .and_then(|v| v.as_str())
+        {
             config.push_str(&format!("searchdomain: {}\n", searchdomain));
         }
 
@@ -617,7 +650,10 @@ features: {}
         log::info!("✓ Proxmox configuration written: {}", config_path);
 
         // Inject firstboot script if specified
-        if let Some(firstboot_script) = props.and_then(|p| p.get("firstboot_script")).and_then(|v| v.as_str()) {
+        if let Some(firstboot_script) = props
+            .and_then(|p| p.get("firstboot_script"))
+            .and_then(|v| v.as_str())
+        {
             Self::inject_firstboot_script(container, storage, firstboot_script).await?;
         }
 
@@ -641,7 +677,11 @@ features: {}
     }
 
     /// Inject firstboot script into container rootfs
-    async fn inject_firstboot_script(container: &ContainerInfo, storage: &str, script_content: &str) -> Result<()> {
+    async fn inject_firstboot_script(
+        container: &ContainerInfo,
+        storage: &str,
+        script_content: &str,
+    ) -> Result<()> {
         let rootfs = format!("/var/lib/pve/{}/images/{}/rootfs", storage, container.id);
         let script_path = format!("{}/usr/local/bin/lxc-firstboot.sh", rootfs);
         let service_path = format!("{}/etc/systemd/system/lxc-firstboot.service", rootfs);
@@ -659,8 +699,7 @@ features: {}
             .await?;
 
         // Create systemd service
-        let service_content =
-            r#"[Unit]
+        let service_content = r#"[Unit]
 Description=LXC First Boot Initialization
 After=network-online.target
 Wants=network-online.target
@@ -673,7 +712,8 @@ RemainAfterExit=yes
 
 [Install]
 WantedBy=multi-user.target
-"#.to_string();
+"#
+        .to_string();
 
         tokio::fs::create_dir_all(format!("{}/etc/systemd/system", rootfs)).await?;
         tokio::fs::write(&service_path, service_content).await?;
@@ -683,9 +723,14 @@ WantedBy=multi-user.target
         tokio::fs::create_dir_all(&symlink_dir).await?;
 
         let symlink_path = format!("{}/lxc-firstboot.service", symlink_dir);
-        tokio::fs::symlink("../lxc-firstboot.service", &symlink_path).await.ok(); // Ignore if exists
+        tokio::fs::symlink("../lxc-firstboot.service", &symlink_path)
+            .await
+            .ok(); // Ignore if exists
 
-        log::info!("✓ Firstboot script injected into container {}", container.id);
+        log::info!(
+            "✓ Firstboot script injected into container {}",
+            container.id
+        );
 
         Ok(())
     }

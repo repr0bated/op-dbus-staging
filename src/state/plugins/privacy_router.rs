@@ -1,7 +1,7 @@
 //! Privacy Router Tunnel - Complete Architecture
-//! 
+//!
 //! Chain: WireGuard Gateway (zero config) → wgcf WARP → XRay Client → (VPS) → XRay Server → Internet
-//! 
+//!
 //! Networking:
 //! - Socket networking in LXC module (separate from container socket network)
 //! - Both entry points on same OVS bridge
@@ -144,7 +144,7 @@ fn default_security_enabled() -> bool {
 }
 
 fn default_obfuscation_level() -> u8 {
-    2  // Level 2 (pattern hiding) recommended for privacy router
+    2 // Level 2 (pattern hiding) recommended for privacy router
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -410,9 +410,9 @@ impl StatePlugin for PrivacyRouterPlugin {
         })
     }
 
-    async fn apply_state(&self, diff: &StateDiff) -> Result<ApplyResult> {
+    async fn apply_state(&self, _diff: &StateDiff) -> Result<ApplyResult> {
         let mut changes_applied = Vec::new();
-        let mut errors = Vec::new();
+        let errors = Vec::new();
 
         // This plugin coordinates the setup but delegates to other plugins:
         // - LXC plugin: Creates containers with socket networking
@@ -444,7 +444,11 @@ impl StatePlugin for PrivacyRouterPlugin {
 
     async fn verify_state(&self, desired: &Value) -> Result<bool> {
         let current = self.query_current_state().await?;
-        Ok(self.calculate_diff(&current, desired).await?.actions.is_empty())
+        Ok(self
+            .calculate_diff(&current, desired)
+            .await?
+            .actions
+            .is_empty())
     }
 
     async fn create_checkpoint(&self) -> Result<Checkpoint> {
@@ -467,8 +471,12 @@ impl StatePlugin for PrivacyRouterPlugin {
 
     async fn rollback(&self, checkpoint: &Checkpoint) -> Result<()> {
         // Rollback would restore previous configuration
-        log::info!("Rolling back privacy router to checkpoint: {}", checkpoint.id);
-        Err(anyhow::anyhow!("Privacy router rollback not yet implemented"))
+        log::info!(
+            "Rolling back privacy router to checkpoint: {}",
+            checkpoint.id
+        );
+        Err(anyhow::anyhow!(
+            "Privacy router rollback not yet implemented"
+        ))
     }
 }
-

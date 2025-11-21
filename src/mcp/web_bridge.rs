@@ -467,30 +467,31 @@ async fn api_spawn_agent(
 ) -> Json<ApiResponse<AgentInfo>> {
     match &state.orchestrator {
         Some(orch) => {
-            let result: Result<String, _> = orch.call("SpawnAgent", &(req.agent_type.clone(),)).await;
+            let result: Result<String, _> =
+                orch.call("SpawnAgent", &(req.agent_type.clone(),)).await;
             match result {
-            Ok(agent_id) => {
-                let agent = AgentInfo {
-                    id: agent_id.clone(),
-                    agent_type: req.agent_type,
-                    status: "spawning".to_string(),
-                    task: None,
-                };
+                Ok(agent_id) => {
+                    let agent = AgentInfo {
+                        id: agent_id.clone(),
+                        agent_type: req.agent_type,
+                        status: "spawning".to_string(),
+                        task: None,
+                    };
 
-                let mut status = state.mcp_status.write().await;
-                status.active_agents.push(agent.clone());
+                    let mut status = state.mcp_status.write().await;
+                    status.active_agents.push(agent.clone());
 
-                Json(ApiResponse {
-                    success: true,
-                    data: Some(agent),
-                    error: None,
-                })
-            }
-            Err(e) => Json(ApiResponse {
-                success: false,
-                data: None,
-                error: Some(format!("Failed to spawn agent: {}", e)),
-            }),
+                    Json(ApiResponse {
+                        success: true,
+                        data: Some(agent),
+                        error: None,
+                    })
+                }
+                Err(e) => Json(ApiResponse {
+                    success: false,
+                    data: None,
+                    error: Some(format!("Failed to spawn agent: {}", e)),
+                }),
             }
         }
         None => Json(ApiResponse {

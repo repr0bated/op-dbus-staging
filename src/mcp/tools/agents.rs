@@ -27,6 +27,9 @@ pub async fn register_agent_tools(registry: &crate::mcp::tool_registry::ToolRegi
     // Monitor Agent Tool
     register_monitor_tool(registry).await?;
     
+    // Orchestrator: Spawn agents
+    register_spawn_agent_tool(registry).await?;
+    
     Ok(())
 }
 
@@ -363,6 +366,69 @@ async fn register_monitor_tool(registry: &crate::mcp::tool_registry::ToolRegistr
                     "Execute",
                     task,
                 ).await?;
+                
+                Ok(ToolResult {
+                    content: vec![ToolContent::json(result)],
+                    metadata: None,
+                })
+            })
+        })
+        .build();
+    
+    registry.register_tool(Box::new(tool)).await?;
+    Ok(())
+}
+
+/// Orchestrator: Spawn agents
+async fn register_spawn_agent_tool(registry: &crate::mcp::tool_registry::ToolRegistry) -> Result<()> {
+    let tool = DynamicToolBuilder::new("spawn_agent")
+        .description("Spawn a new agent instance via the orchestrator (e.g., rust-pro, systemd, network, executor, file, monitor)")
+        .schema(json!({
+            "type": "object",
+            "properties": {
+                "agent_type": {
+                    "type": "string",
+                    "description": "Type of agent to spawn (rust-pro, systemd, network, executor, file, monitor, etc.)",
+                    "enum": ["rust-pro", "systemd", "network", "executor", "file", "monitor", "c-pro", "cpp-pro", "golang-pro", "python-pro", "javascript-pro"]
+                },
+                "config": {
+                    "type": "object",
+                    "description": "Optional configuration for the agent (JSON object)"
+                }
+            },
+            "required": ["agent_type"]
+        }))
+        .handler(|params| {
+            Box::pin(async move {
+                let agent_type = params["agent_type"]
+                    .as_str()
+                    .ok_or_else(|| anyhow::anyhow!("Missing agent_type parameter"))?
+                    .to_string();
+                
+                let config_json = if let Some(config) = params.get("config") {
+                    serde_json::to_string(config)?
+                } else {
+                    String::new()
+                };
+                
+                // Call orchestrator via D-Bus
+                let connection = Connection::system().await?;
+                
+                let proxy = zbus::Proxy::new(
+                    &connection,
+                    "org.dbusmcp.Orchestrator",
+                    "/org/dbusmcp/Orchestrator",
+                    "org.dbusmcp.Orchestrator",
+                ).await?;
+                
+                let agent_id: String = proxy.call("SpawnAgent", &(agent_type.clone(), config_json)).await?;
+                
+                let result = json!({
+                    "success": true,
+                    "agent_id": agent_id,
+                    "agent_type": agent_type,
+                    "message": format!("Successfully spawned {} agent", agent_type)
+                });
                 
                 Ok(ToolResult {
                     content: vec![ToolContent::json(result)],

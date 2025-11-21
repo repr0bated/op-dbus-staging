@@ -27,9 +27,9 @@ pub struct CpuFeatureAnalysis {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CpuModel {
-    pub vendor: String,        // "Intel", "AMD"
-    pub family: String,        // CPU family
-    pub model_name: String,    // Full model string
+    pub vendor: String,     // "Intel", "AMD"
+    pub family: String,     // CPU family
+    pub model_name: String, // Full model string
     pub stepping: u32,
     pub microcode: String,
 }
@@ -40,17 +40,17 @@ pub struct CpuFeature {
     pub technical_name: String, // "vmx", "svm", "iommu", "sgx"
     pub category: FeatureCategory,
     pub status: FeatureStatus,
-    pub bios_locked: bool,      // True if BIOS prevents enabling
+    pub bios_locked: bool, // True if BIOS prevents enabling
     pub unlock_method: Option<UnlockMethod>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub enum FeatureCategory {
-    Virtualization,    // VT-x, AMD-V, VT-d
-    Security,          // SGX, TXT, SME, SEV
-    Performance,       // Turbo Boost, SpeedStep
-    PowerManagement,   // C-states, P-states
-    Debugging,         // Performance counters, debug registers
+    Virtualization,  // VT-x, AMD-V, VT-d
+    Security,        // SGX, TXT, SME, SEV
+    Performance,     // Turbo Boost, SpeedStep
+    PowerManagement, // C-states, P-states
+    Debugging,       // Performance counters, debug registers
     Other,
 }
 
@@ -74,11 +74,11 @@ pub enum FeatureStatus {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BiosLock {
-    pub register: String,       // "MSR 0x3A", "CPUID leaf 0x7"
-    pub lock_bit: String,       // "Bit 0 (Lock)"
+    pub register: String, // "MSR 0x3A", "CPUID leaf 0x7"
+    pub lock_bit: String, // "Bit 0 (Lock)"
     pub affected_features: Vec<String>,
     pub locked: bool,
-    pub lock_method: String,    // "MSR lock bit", "BIOS setting", "Vendor fuse"
+    pub lock_method: String, // "MSR lock bit", "BIOS setting", "Vendor fuse"
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -92,11 +92,11 @@ pub struct UnlockMethod {
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub enum RiskLevel {
-    Safe,           // No risk, reversible
-    Low,            // Minimal risk, easily reversible
-    Medium,         // Some risk, may cause instability
-    High,           // Significant risk, may brick BIOS
-    VendorLocked,   // Cannot be unlocked (hardware fuse)
+    Safe,         // No risk, reversible
+    Low,          // Minimal risk, easily reversible
+    Medium,       // Some risk, may cause instability
+    High,         // Significant risk, may brick BIOS
+    VendorLocked, // Cannot be unlocked (hardware fuse)
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -110,10 +110,10 @@ pub struct Recommendation {
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Priority {
-    Critical,  // Essential for operation (e.g., VT-x for virtualization)
-    High,      // Significant benefit
-    Medium,    // Nice to have
-    Low,       // Minor improvement
+    Critical, // Essential for operation (e.g., VT-x for virtualization)
+    High,     // Significant benefit
+    Medium,   // Nice to have
+    Low,      // Minor improvement
 }
 
 /// Analyzer for CPU features and BIOS locks
@@ -206,8 +206,8 @@ impl CpuFeatureAnalyzer {
 
     /// Detect CPU model information
     fn detect_cpu_model(&self) -> Result<CpuModel> {
-        let cpuinfo = fs::read_to_string("/proc/cpuinfo")
-            .context("Failed to read /proc/cpuinfo")?;
+        let cpuinfo =
+            fs::read_to_string("/proc/cpuinfo").context("Failed to read /proc/cpuinfo")?;
 
         let mut vendor = "Unknown".to_string();
         let mut model_name = "Unknown".to_string();
@@ -217,7 +217,12 @@ impl CpuFeatureAnalyzer {
 
         for line in cpuinfo.lines() {
             if line.starts_with("vendor_id") {
-                vendor = line.split(':').nth(1).unwrap_or("Unknown").trim().to_string();
+                vendor = line
+                    .split(':')
+                    .nth(1)
+                    .unwrap_or("Unknown")
+                    .trim()
+                    .to_string();
                 // Normalize vendor names
                 if vendor.contains("Intel") {
                     vendor = "Intel".to_string();
@@ -225,15 +230,30 @@ impl CpuFeatureAnalyzer {
                     vendor = "AMD".to_string();
                 }
             } else if line.starts_with("model name") {
-                model_name = line.split(':').nth(1).unwrap_or("Unknown").trim().to_string();
+                model_name = line
+                    .split(':')
+                    .nth(1)
+                    .unwrap_or("Unknown")
+                    .trim()
+                    .to_string();
             } else if line.starts_with("cpu family") {
-                family = line.split(':').nth(1).unwrap_or("Unknown").trim().to_string();
+                family = line
+                    .split(':')
+                    .nth(1)
+                    .unwrap_or("Unknown")
+                    .trim()
+                    .to_string();
             } else if line.starts_with("stepping") {
                 if let Ok(s) = line.split(':').nth(1).unwrap_or("0").trim().parse() {
                     stepping = s;
                 }
             } else if line.starts_with("microcode") {
-                microcode = line.split(':').nth(1).unwrap_or("Unknown").trim().to_string();
+                microcode = line
+                    .split(':')
+                    .nth(1)
+                    .unwrap_or("Unknown")
+                    .trim()
+                    .to_string();
             }
         }
 
@@ -248,8 +268,8 @@ impl CpuFeatureAnalyzer {
 
     /// Read CPU flags from /proc/cpuinfo
     fn read_cpuinfo_flags(&self) -> Result<Vec<String>> {
-        let cpuinfo = fs::read_to_string("/proc/cpuinfo")
-            .context("Failed to read /proc/cpuinfo")?;
+        let cpuinfo =
+            fs::read_to_string("/proc/cpuinfo").context("Failed to read /proc/cpuinfo")?;
 
         for line in cpuinfo.lines() {
             if line.starts_with("flags") || line.starts_with("Features") {
@@ -269,8 +289,8 @@ impl CpuFeatureAnalyzer {
 
     /// Check if MSR (Model Specific Register) access is available
     fn check_msr_available(&self) -> bool {
-        std::path::Path::new("/dev/cpu/0/msr").exists() ||
-        Command::new("modprobe").arg("msr").output().is_ok()
+        std::path::Path::new("/dev/cpu/0/msr").exists()
+            || Command::new("modprobe").arg("msr").output().is_ok()
     }
 
     /// Check virtualization support (VT-x/AMD-V)
@@ -308,7 +328,10 @@ impl CpuFeatureAnalyzer {
         // Check if actually enabled (can we use KVM?)
         let kvm_enabled = std::path::Path::new("/dev/kvm").exists();
 
-        let (status, bios_lock, recommendation) = if !kvm_enabled && cpu_model.vendor == "Intel" && msr_available {
+        let (status, bios_lock, recommendation) = if !kvm_enabled
+            && cpu_model.vendor == "Intel"
+            && msr_available
+        {
             // CPU supports VT-x but /dev/kvm doesn't exist
             // Check MSR 0x3A (IA32_FEATURE_CONTROL) to see if BIOS locked it
             let msr_lock_status = self.check_intel_vmx_lock()?;
@@ -385,16 +408,14 @@ impl CpuFeatureAnalyzer {
     /// Check Intel VT-x lock status via MSR
     fn check_intel_vmx_lock(&self) -> Result<VmxLockStatus> {
         // Try to read MSR 0x3A (IA32_FEATURE_CONTROL)
-        let output = Command::new("rdmsr")
-            .arg("0x3A")
-            .output();
+        let output = Command::new("rdmsr").arg("0x3A").output();
 
         if let Ok(out) = output {
             if out.status.success() {
                 let value_str = String::from_utf8_lossy(&out.stdout).trim().to_string();
                 if let Ok(value) = u64::from_str_radix(&value_str, 16) {
-                    let lock_bit = value & 0x1;       // Bit 0: Lock
-                    let vmx_enable = value & 0x4;     // Bit 2: VMX Enable
+                    let lock_bit = value & 0x1; // Bit 0: Lock
+                    let vmx_enable = value & 0x4; // Bit 2: VMX Enable
 
                     if lock_bit == 1 {
                         if vmx_enable == 0 {
@@ -445,7 +466,10 @@ impl CpuFeatureAnalyzer {
     }
 
     /// Check IOMMU (VT-d/AMD-Vi) support
-    fn check_iommu(&self, _flags: &[String]) -> Result<Option<(CpuFeature, Option<Recommendation>)>> {
+    fn check_iommu(
+        &self,
+        _flags: &[String],
+    ) -> Result<Option<(CpuFeature, Option<Recommendation>)>> {
         // Check for IOMMU support in kernel
         let dmesg_output = Command::new("dmesg")
             .output()
@@ -453,9 +477,9 @@ impl CpuFeatureAnalyzer {
             .and_then(|o| String::from_utf8(o.stdout).ok())
             .unwrap_or_default();
 
-        let iommu_enabled = dmesg_output.contains("IOMMU enabled") ||
-                            dmesg_output.contains("AMD-Vi") ||
-                            dmesg_output.contains("DMAR");
+        let iommu_enabled = dmesg_output.contains("IOMMU enabled")
+            || dmesg_output.contains("AMD-Vi")
+            || dmesg_output.contains("DMAR");
 
         let iommu_groups_exist = std::path::Path::new("/sys/kernel/iommu_groups").exists();
 
@@ -491,11 +515,7 @@ impl CpuFeatureAnalyzer {
     }
 
     /// Check Intel SGX (Software Guard Extensions)
-    fn check_sgx(
-        &self,
-        flags: &[String],
-        _msr_available: bool,
-    ) -> FeatureCheckResult {
+    fn check_sgx(&self, flags: &[String], _msr_available: bool) -> FeatureCheckResult {
         let sgx_supported = flags.contains(&"sgx".to_string());
 
         if !sgx_supported {
@@ -503,8 +523,8 @@ impl CpuFeatureAnalyzer {
         }
 
         // Check if SGX is enabled
-        let sgx_enabled = std::path::Path::new("/dev/sgx").exists() ||
-                         std::path::Path::new("/dev/sgx_enclave").exists();
+        let sgx_enabled = std::path::Path::new("/dev/sgx").exists()
+            || std::path::Path::new("/dev/sgx_enclave").exists();
 
         let (status, lock, rec) = if !sgx_enabled {
             (
@@ -514,9 +534,12 @@ impl CpuFeatureAnalyzer {
                     priority: Priority::Medium,
                     feature: "Intel SGX".to_string(),
                     reason: "CPU supports SGX but it is disabled".to_string(),
-                    benefit: "Enable secure enclaves for confidential computing, secrets management".to_string(),
-                    action: "Enable Intel SGX in BIOS (usually under Security or CPU settings)".to_string(),
-                })
+                    benefit:
+                        "Enable secure enclaves for confidential computing, secrets management"
+                            .to_string(),
+                    action: "Enable Intel SGX in BIOS (usually under Security or CPU settings)"
+                        .to_string(),
+                }),
             )
         } else {
             (FeatureStatus::Enabled, None, None)
@@ -545,7 +568,9 @@ impl CpuFeatureAnalyzer {
         // Check if turbo is currently enabled
         let turbo_enabled = if cpu_model.vendor == "Intel" {
             // Check /sys/devices/system/cpu/intel_pstate/no_turbo
-            if let Ok(contents) = fs::read_to_string("/sys/devices/system/cpu/intel_pstate/no_turbo") {
+            if let Ok(contents) =
+                fs::read_to_string("/sys/devices/system/cpu/intel_pstate/no_turbo")
+            {
                 contents.trim() == "0" // no_turbo=0 means turbo is enabled
             } else {
                 // Assume enabled if can't check
@@ -598,7 +623,10 @@ impl CpuFeatureAnalyzer {
     }
 
     /// Check AMD SME/SEV (Secure Memory Encryption)
-    fn check_amd_encryption(&self, flags: &[String]) -> Result<Option<(CpuFeature, Option<Recommendation>)>> {
+    fn check_amd_encryption(
+        &self,
+        flags: &[String],
+    ) -> Result<Option<(CpuFeature, Option<Recommendation>)>> {
         let sme_supported = flags.contains(&"sme".to_string());
         let sev_supported = flags.contains(&"sev".to_string());
 
@@ -645,7 +673,7 @@ impl CpuFeatureAnalyzer {
 
 #[derive(Debug, PartialEq)]
 enum VmxLockStatus {
-    Locked,              // BIOS locked VT-x disabled
-    EnabledLocked,       // BIOS locked VT-x enabled
-    DisabledUnlocked,    // Not locked, can be enabled
+    Locked,           // BIOS locked VT-x disabled
+    EnabledLocked,    // BIOS locked VT-x enabled
+    DisabledUnlocked, // Not locked, can be enabled
 }

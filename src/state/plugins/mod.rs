@@ -10,6 +10,7 @@ pub mod openflow;
 pub mod packagekit;
 pub mod sessdecl;
 pub mod systemd;
+pub mod systemd_networkd;
 
 pub mod dnsresolver;
 pub mod pcidecl;

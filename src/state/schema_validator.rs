@@ -1,9 +1,9 @@
 //! Schema Validator - Prevents random/unrealistic schema generation
 //! Validates schemas against curated use cases and constraints
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
 
 /// Validated use case template
@@ -168,12 +168,15 @@ impl SchemaValidator {
             valid: errors.is_empty(),
             errors,
             warnings,
-            matched_use_case: matching_use_case.map(|uc| uc.name),
+            matched_use_case: matching_use_case.map(|uc| uc.name.clone()),
         })
     }
 
     /// Find matching use case for a schema
-    fn find_matching_use_case(&self, plugins: &serde_json::Map<String, Value>) -> Option<&UseCaseTemplate> {
+    fn find_matching_use_case(
+        &self,
+        plugins: &serde_json::Map<String, Value>,
+    ) -> Option<&UseCaseTemplate> {
         for use_case in &self.use_cases {
             let mut matches = 0;
             for required_plugin in &use_case.required_plugins {
@@ -212,29 +215,34 @@ impl SchemaValidator {
                 ],
                 required_fields: {
                     let mut m = HashMap::new();
-                    m.insert("privacy_router".to_string(), vec![
-                        "bridge_name".to_string(),
-                        "wireguard.enabled".to_string(),
-                        "warp.enabled".to_string(),
-                        "xray.enabled".to_string(),
-                    ]);
-                    m.insert("openflow".to_string(), vec![
-                        "bridges".to_string(),
-                    ]);
+                    m.insert(
+                        "privacy_router".to_string(),
+                        vec![
+                            "bridge_name".to_string(),
+                            "wireguard.enabled".to_string(),
+                            "warp.enabled".to_string(),
+                            "xray.enabled".to_string(),
+                        ],
+                    );
+                    m.insert("openflow".to_string(), vec!["bridges".to_string()]);
                     m
                 },
-                valid_combinations: vec![
-                    FieldCombination {
-                        plugin: "privacy_router".to_string(),
-                        fields: {
-                            let mut m = HashMap::new();
-                            m.insert("wireguard.container_id".to_string(), vec!["100".to_string()]);
-                            m.insert("xray.container_id".to_string(), vec!["101".to_string()]);
-                            m.insert("bridge_name".to_string(), vec!["ovsbr0".to_string(), "vmbr0".to_string()]);
-                            m
-                        },
+                valid_combinations: vec![FieldCombination {
+                    plugin: "privacy_router".to_string(),
+                    fields: {
+                        let mut m = HashMap::new();
+                        m.insert(
+                            "wireguard.container_id".to_string(),
+                            vec!["100".to_string()],
+                        );
+                        m.insert("xray.container_id".to_string(), vec!["101".to_string()]);
+                        m.insert(
+                            "bridge_name".to_string(),
+                            vec!["ovsbr0".to_string(), "vmbr0".to_string()],
+                        );
+                        m
                     },
-                ],
+                }],
                 dependencies: vec![
                     Dependency {
                         requires: "privacy_router".to_string(),
@@ -247,14 +255,15 @@ impl SchemaValidator {
                         condition: None,
                     },
                 ],
-                constraints: vec![
-                    Constraint {
-                        plugin: "privacy_router".to_string(),
-                        field: "wireguard.container_id".to_string(),
-                        constraint_type: ConstraintType::Range { min: 100.0, max: 999.0 },
-                        required: Value::Null,
+                constraints: vec![Constraint {
+                    plugin: "privacy_router".to_string(),
+                    field: "wireguard.container_id".to_string(),
+                    constraint_type: ConstraintType::Range {
+                        min: 100.0,
+                        max: 999.0,
                     },
-                ],
+                    required: Value::Null,
+                }],
             },
             // Basic Network Use Case
             UseCaseTemplate {
@@ -281,13 +290,11 @@ impl SchemaValidator {
                 ],
                 required_fields: HashMap::new(),
                 valid_combinations: vec![],
-                dependencies: vec![
-                    Dependency {
-                        requires: "netmaker".to_string(),
-                        required: "net".to_string(),
-                        condition: None,
-                    },
-                ],
+                dependencies: vec![Dependency {
+                    requires: "netmaker".to_string(),
+                    required: "net".to_string(),
+                    condition: None,
+                }],
                 constraints: vec![],
             },
         ]
@@ -347,12 +354,12 @@ impl SchemaValidator {
             .map(|uc| {
                 let mut schema = serde_json::Map::new();
                 schema.insert("version".to_string(), json!(1));
-                
+
                 let mut plugins = serde_json::Map::new();
-                
+
                 for plugin_name in &uc.required_plugins {
                     let mut plugin_config = serde_json::Map::new();
-                    
+
                     // Add required fields with sensible defaults
                     if let Some(required_fields) = uc.required_fields.get(plugin_name) {
                         for field in required_fields {
@@ -367,10 +374,10 @@ impl SchemaValidator {
                             }
                         }
                     }
-                    
+
                     plugins.insert(plugin_name.clone(), json!(plugin_config));
                 }
-                
+
                 schema.insert("plugins".to_string(), json!(plugins));
                 json!(schema)
             })
@@ -390,4 +397,3 @@ impl Default for SchemaValidator {
         Self::new()
     }
 }
-

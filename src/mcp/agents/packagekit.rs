@@ -1,9 +1,9 @@
 //! PackageKit MCP Agent
 //! Exposes package management operations as MCP tools via D-Bus
 
-use serde::{Deserialize, Serialize};
-use zbus::{interface, connection::Builder, object_server::SignalEmitter, Connection, Proxy};
 use anyhow::{Context, Result};
+use serde::{Deserialize, Serialize};
+use zbus::{connection::Builder, interface, object_server::SignalEmitter, Connection, Proxy};
 
 #[derive(Debug, Deserialize)]
 struct PackageTask {
@@ -100,7 +100,10 @@ impl PackageKitAgent {
             success: true,
             action: "search".to_string(),
             packages: Vec::new(),
-            message: format!("Search initiated for '{}' on transaction {}", query, transaction_path),
+            message: format!(
+                "Search initiated for '{}' on transaction {}",
+                query, transaction_path
+            ),
             transaction_path: Some(transaction_path),
         })
     }
@@ -128,7 +131,10 @@ impl PackageKitAgent {
             success: true,
             action: "install".to_string(),
             packages: Vec::new(),
-            message: format!("Install initiated for {:?} on transaction {}", package_names, transaction_path),
+            message: format!(
+                "Install initiated for {:?} on transaction {}",
+                package_names, transaction_path
+            ),
             transaction_path: Some(transaction_path),
         })
     }
@@ -155,7 +161,10 @@ impl PackageKitAgent {
             success: true,
             action: "remove".to_string(),
             packages: Vec::new(),
-            message: format!("Remove initiated for {:?} on transaction {}", package_names, transaction_path),
+            message: format!(
+                "Remove initiated for {:?} on transaction {}",
+                package_names, transaction_path
+            ),
             transaction_path: Some(transaction_path),
         })
     }
@@ -176,7 +185,10 @@ impl PackageKitAgent {
             success: true,
             action: "list".to_string(),
             packages: Vec::new(),
-            message: format!("List installed packages on transaction {}", transaction_path),
+            message: format!(
+                "List installed packages on transaction {}",
+                transaction_path
+            ),
             transaction_path: Some(transaction_path),
         })
     }
@@ -243,7 +255,10 @@ impl PackageKitAgent {
             success: true,
             action: "details".to_string(),
             packages: Vec::new(),
-            message: format!("Get details for {:?} on transaction {}", package_names, transaction_path),
+            message: format!(
+                "Get details for {:?} on transaction {}",
+                package_names, transaction_path
+            ),
             transaction_path: Some(transaction_path),
         })
     }
@@ -285,7 +300,9 @@ impl PackageKitAgent {
             }
             "install" => {
                 let packages = task.packages.as_ref().ok_or_else(|| {
-                    zbus::fdo::Error::InvalidArgs("Install requires 'packages' parameter".to_string())
+                    zbus::fdo::Error::InvalidArgs(
+                        "Install requires 'packages' parameter".to_string(),
+                    )
                 })?;
 
                 self.install_packages(packages)
@@ -294,31 +311,32 @@ impl PackageKitAgent {
             }
             "remove" => {
                 let packages = task.packages.as_ref().ok_or_else(|| {
-                    zbus::fdo::Error::InvalidArgs("Remove requires 'packages' parameter".to_string())
+                    zbus::fdo::Error::InvalidArgs(
+                        "Remove requires 'packages' parameter".to_string(),
+                    )
                 })?;
 
                 self.remove_packages(packages)
                     .await
                     .map_err(|e| zbus::fdo::Error::Failed(e.to_string()))?
             }
-            "list" => {
-                self.list_installed()
-                    .await
-                    .map_err(|e| zbus::fdo::Error::Failed(e.to_string()))?
-            }
-            "updates" => {
-                self.get_updates()
-                    .await
-                    .map_err(|e| zbus::fdo::Error::Failed(e.to_string()))?
-            }
-            "refresh" => {
-                self.refresh_cache()
-                    .await
-                    .map_err(|e| zbus::fdo::Error::Failed(e.to_string()))?
-            }
+            "list" => self
+                .list_installed()
+                .await
+                .map_err(|e| zbus::fdo::Error::Failed(e.to_string()))?,
+            "updates" => self
+                .get_updates()
+                .await
+                .map_err(|e| zbus::fdo::Error::Failed(e.to_string()))?,
+            "refresh" => self
+                .refresh_cache()
+                .await
+                .map_err(|e| zbus::fdo::Error::Failed(e.to_string()))?,
             "details" => {
                 let packages = task.packages.as_ref().ok_or_else(|| {
-                    zbus::fdo::Error::InvalidArgs("Details requires 'packages' parameter".to_string())
+                    zbus::fdo::Error::InvalidArgs(
+                        "Details requires 'packages' parameter".to_string(),
+                    )
                 })?;
 
                 self.get_details(packages)
@@ -333,9 +351,8 @@ impl PackageKitAgent {
             }
         };
 
-        let result_json = serde_json::to_string(&result).map_err(|e| {
-            zbus::fdo::Error::Failed(format!("Failed to serialize result: {}", e))
-        })?;
+        let result_json = serde_json::to_string(&result)
+            .map_err(|e| zbus::fdo::Error::Failed(format!("Failed to serialize result: {}", e)))?;
 
         Ok(result_json)
     }
@@ -347,7 +364,8 @@ impl PackageKitAgent {
 
     /// Signal emitted when task completes
     #[zbus(signal)]
-    async fn task_completed(signal_emitter: &SignalEmitter<'_>, result: String) -> zbus::Result<()>;
+    async fn task_completed(signal_emitter: &SignalEmitter<'_>, result: String)
+        -> zbus::Result<()>;
 
     /// Signal emitted for package events
     #[zbus(signal)]
@@ -379,8 +397,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         agent_id: agent_id.clone(),
     };
 
-    let path = format!("/org/dbusmcp/Agent/PackageKit/{}", agent_id.replace('-', "_"));
-    let service_name = format!("org.dbusmcp.Agent.PackageKit.{}", agent_id.replace('-', "_"));
+    let path = format!(
+        "/org/dbusmcp/Agent/PackageKit/{}",
+        agent_id.replace('-', "_")
+    );
+    let service_name = format!(
+        "org.dbusmcp.Agent.PackageKit.{}",
+        agent_id.replace('-', "_")
+    );
 
     let _conn = Builder::session()?
         .name(service_name.as_str())?

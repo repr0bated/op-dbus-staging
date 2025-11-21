@@ -13,8 +13,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
-use zbus::{Connection, Proxy};
 use zbus::zvariant::OwnedValue;
+use zbus::{Connection, Proxy};
 use zbus_xml::Node;
 
 use crate::mcp::system_introspection::SystemIntrospector;
@@ -111,8 +111,7 @@ impl DbusIndexer {
         let index_root = index_root.as_ref().to_path_buf();
 
         // Ensure index directory exists
-        fs::create_dir_all(&index_root)
-            .context("Failed to create index directory")?;
+        fs::create_dir_all(&index_root).context("Failed to create index directory")?;
 
         // Connect to the specified bus
         let connection = match bus_type {
@@ -131,7 +130,9 @@ impl DbusIndexer {
     }
 
     /// Index BOTH system and session buses for complete coverage
-    pub async fn build_complete_index_all_buses(index_root: impl AsRef<Path>) -> Result<(DbusIndex, DbusIndex)> {
+    pub async fn build_complete_index_all_buses(
+        index_root: impl AsRef<Path>,
+    ) -> Result<(DbusIndex, DbusIndex)> {
         let index_root = index_root.as_ref();
 
         log::info!("📡 Indexing BOTH system and session buses...");
@@ -147,15 +148,24 @@ impl DbusIndexer {
         let session_index = session_indexer.build_complete_index().await?;
 
         log::info!("✅ Complete D-Bus index built");
-        log::info!("   System bus: {} services", system_index.statistics.total_services);
-        log::info!("   Session bus: {} services", session_index.statistics.total_services);
+        log::info!(
+            "   System bus: {} services",
+            system_index.statistics.total_services
+        );
+        log::info!(
+            "   Session bus: {} services",
+            session_index.statistics.total_services
+        );
 
         Ok((system_index, session_index))
     }
 
     /// Build complete D-Bus index (unlimited, no artificial limits)
     pub async fn build_complete_index(&self) -> Result<DbusIndex> {
-        log::info!("🔍 Starting complete D-Bus index build for {} bus...", self.bus_type);
+        log::info!(
+            "🔍 Starting complete D-Bus index build for {} bus...",
+            self.bus_type
+        );
         let start = std::time::Instant::now();
 
         // Discover ALL services
@@ -169,7 +179,12 @@ impl DbusIndexer {
         let mut total_properties = 0;
 
         for (idx, service_name) in service_names.iter().enumerate() {
-            log::info!("   [{}/{}] Indexing {}", idx + 1, service_names.len(), service_name);
+            log::info!(
+                "   [{}/{}] Indexing {}",
+                idx + 1,
+                service_names.len(),
+                service_name
+            );
 
             match self.index_service(service_name).await {
                 Ok(service_index) => {
@@ -218,8 +233,11 @@ impl DbusIndexer {
         // Try ObjectManager.GetManagedObjects first (MUCH faster!)
         match self.try_index_via_object_manager(service_name).await {
             Ok(service_index) => {
-                log::debug!("   ✨ Used ObjectManager for {} ({} objects)",
-                    service_name, service_index.objects.len());
+                log::debug!(
+                    "   ✨ Used ObjectManager for {} ({} objects)",
+                    service_name,
+                    service_index.objects.len()
+                );
                 return Ok(service_index);
             }
             Err(e) => {
@@ -287,8 +305,9 @@ impl DbusIndexer {
             &self.connection,
             service,
             path,
-            "org.freedesktop.DBus.ObjectManager"
-        ).await?;
+            "org.freedesktop.DBus.ObjectManager",
+        )
+        .await?;
 
         // Call GetManagedObjects with proper zbus 3.14.1 API
         let result: Result<HashMap<String, HashMap<String, HashMap<String, OwnedValue>>>, _> =
@@ -305,7 +324,7 @@ impl DbusIndexer {
     ) -> Result<ServiceIndex> {
         let mut object_indices = Vec::new();
         let mut total_interfaces = 0;
-        let mut total_methods = 0;
+        let total_methods = 0;
         let mut total_properties = 0;
 
         for (object_path, interfaces) in managed {
@@ -359,7 +378,11 @@ impl DbusIndexer {
             discovered.push(path.clone());
 
             // Try to introspect and find children
-            if let Ok(xml) = self.introspector.introspect_service_at_path(service_name, &path).await {
+            if let Ok(xml) = self
+                .introspector
+                .introspect_service_at_path(service_name, &path)
+                .await
+            {
                 let children = self.extract_child_nodes(&xml);
                 for child in children {
                     let child_path = if path == "/" {
@@ -380,11 +403,14 @@ impl DbusIndexer {
 
     /// Index a single object (extract all methods, properties, interfaces)
     async fn index_object(&self, service_name: &str, object_path: &str) -> Result<ObjectIndex> {
-        let xml = self.introspector.introspect_service_at_path(service_name, object_path).await?;
+        let xml = self
+            .introspector
+            .introspect_service_at_path(service_name, object_path)
+            .await?;
 
         // Parse introspection XML with zbus_xml::Node for full method/property signatures
-        let node = Node::from_reader(xml.as_bytes())
-            .context("Failed to parse introspection XML")?;
+        let node =
+            Node::from_reader(xml.as_bytes()).context("Failed to parse introspection XML")?;
 
         let mut interfaces = Vec::new();
         let mut methods = Vec::new();
@@ -397,15 +423,25 @@ impl DbusIndexer {
 
             // Extract methods with input/output signatures
             for method in iface.methods() {
-                let inputs: Vec<String> = method.args()
+                let inputs: Vec<String> = method
+                    .args()
                     .iter()
-                    .filter(|a| a.direction().map(|d| d == zbus_xml::ArgDirection::In).unwrap_or(true))
+                    .filter(|a| {
+                        a.direction()
+                            .map(|d| d == zbus_xml::ArgDirection::In)
+                            .unwrap_or(true)
+                    })
                     .map(|a| a.ty().to_string())
                     .collect();
 
-                let outputs: Vec<String> = method.args()
+                let outputs: Vec<String> = method
+                    .args()
                     .iter()
-                    .filter(|a| a.direction().map(|d| d == zbus_xml::ArgDirection::Out).unwrap_or(false))
+                    .filter(|a| {
+                        a.direction()
+                            .map(|d| d == zbus_xml::ArgDirection::Out)
+                            .unwrap_or(false)
+                    })
                     .map(|a| a.ty().to_string())
                     .collect();
 
@@ -474,13 +510,12 @@ impl DbusIndexer {
     fn extract_child_nodes(&self, xml: &str) -> Vec<String> {
         // Extract child <node name="..."/> from introspection XML using zbus_xml
         match Node::from_reader(xml.as_bytes()) {
-            Ok(node) => {
-                node.nodes()
-                    .iter()
-                    .filter_map(|n| n.name())
-                    .map(|s| s.to_string())
-                    .collect()
-            }
+            Ok(node) => node
+                .nodes()
+                .iter()
+                .filter_map(|n| n.name())
+                .map(|s| s.to_string())
+                .collect(),
             Err(_) => {
                 // Fallback to basic parsing if XML parsing fails
                 let mut children = Vec::new();
@@ -550,7 +585,7 @@ pub struct VerificationResult {
     pub index_services: usize,
     pub live_services: usize,
     pub missing_from_index: Vec<String>,
-    pub extra_in_index: Vec<String>,  // Services in index but not live
+    pub extra_in_index: Vec<String>, // Services in index but not live
     pub coverage_percent: f64,
 }
 
@@ -595,7 +630,10 @@ impl DbusIndexer {
             log::warn!("   Missing {} services from index", missing.len());
         }
         if !extra.is_empty() {
-            log::info!("   {} services in index but not currently running", extra.len());
+            log::info!(
+                "   {} services in index but not currently running",
+                extra.len()
+            );
         }
 
         Ok(VerificationResult {

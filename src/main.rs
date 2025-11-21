@@ -21,8 +21,7 @@ use tracing::info;
 #[cfg(any(feature = "mcp", feature = "web"))]
 use op_dbus::mcp::dbus_indexer::{DbusIndexer, DbusQueryEngine};
 #[cfg(any(feature = "mcp", feature = "web"))]
-use op_dbus::snapshot::{SnapshotManager, RetentionPolicy};
-
+use op_dbus::snapshot::{RetentionPolicy, SnapshotManager};
 
 #[derive(Parser)]
 #[command(
@@ -488,22 +487,41 @@ async fn main() -> Result<()> {
 
     // Register core plugins manually
     let plugins = vec![
-        ("net", Arc::new(state::plugins::NetStatePlugin::new()) as Arc<dyn crate::state::plugin::StatePlugin>),
-        ("systemd", Arc::new(state::plugins::SystemdStatePlugin::new())),
+        (
+            "net",
+            Arc::new(state::plugins::NetStatePlugin::new())
+                as Arc<dyn crate::state::plugin::StatePlugin>,
+        ),
+        (
+            "systemd",
+            Arc::new(state::plugins::SystemdStatePlugin::new()),
+        ),
         ("login1", Arc::new(state::plugins::Login1Plugin::new())),
         ("lxc", Arc::new(state::plugins::LxcPlugin::new())),
         ("sessdecl", Arc::new(state::plugins::SessDeclPlugin::new())),
         ("dns", Arc::new(state::plugins::DnsResolverPlugin::new())),
         ("pcidecl", Arc::new(state::plugins::PciDeclPlugin::new())),
-        ("packagekit", Arc::new(state::plugins::PackageKitPlugin::new())),
+        (
+            "packagekit",
+            Arc::new(state::plugins::PackageKitPlugin::new()),
+        ),
         #[cfg(feature = "openflow")]
         ("openflow", Arc::new(state::plugins::OpenFlowPlugin::new())),
         #[cfg(feature = "openflow")]
-        ("privacy", Arc::new(state::plugins::PrivacyPlugin::new(Default::default()))),
+        (
+            "privacy",
+            Arc::new(state::plugins::PrivacyPlugin::new(Default::default())),
+        ),
         #[cfg(feature = "openflow")]
-        ("netmaker", Arc::new(state::plugins::NetmakerPlugin::new(Default::default()))),
+        (
+            "netmaker",
+            Arc::new(state::plugins::NetmakerPlugin::new(Default::default())),
+        ),
         #[cfg(feature = "openflow")]
-        ("privacy_router", Arc::new(state::plugins::PrivacyRouterPlugin::new(Default::default()))),
+        (
+            "privacy_router",
+            Arc::new(state::plugins::PrivacyRouterPlugin::new(Default::default())),
+        ),
     ];
 
     for (name, plugin) in plugins {
@@ -995,21 +1013,24 @@ async fn handle_image_command(cmd: ImageCommands) -> Result<()> {
     use op_dbus::deployment::ImageManager;
 
     let base_path = match &cmd {
-        ImageCommands::Init { base } |
-        ImageCommands::Create { base, .. } |
-        ImageCommands::List { base } |
-        ImageCommands::Show { base, .. } |
-        ImageCommands::Snapshot { base, .. } |
-        ImageCommands::Delete { base, .. } => {
-            base.clone().unwrap_or_else(|| PathBuf::from("/var/lib/op-dbus/deployment"))
-        }
+        ImageCommands::Init { base }
+        | ImageCommands::Create { base, .. }
+        | ImageCommands::List { base }
+        | ImageCommands::Show { base, .. }
+        | ImageCommands::Snapshot { base, .. }
+        | ImageCommands::Delete { base, .. } => base
+            .clone()
+            .unwrap_or_else(|| PathBuf::from("/var/lib/op-dbus/deployment")),
     };
 
     let manager = ImageManager::new(&base_path);
 
     match cmd {
         ImageCommands::Init { .. } => {
-            println!("Initializing deployment image directory at: {}", base_path.display());
+            println!(
+                "Initializing deployment image directory at: {}",
+                base_path.display()
+            );
             manager.init().await?;
             println!("✅ Initialized deployment image directory");
             Ok(())
@@ -1054,8 +1075,10 @@ async fn handle_image_command(cmd: ImageCommands) -> Result<()> {
                 println!("{}", img.name);
                 println!("  Created: {}", dt);
                 println!("  Path: {}", img.path.display());
-                println!("  Size: {} bytes (unique: {}, symlinked: {})", 
-                    img.total_size, img.unique_size, img.symlinked_size);
+                println!(
+                    "  Size: {} bytes (unique: {}, symlinked: {})",
+                    img.total_size, img.unique_size, img.symlinked_size
+                );
                 println!("  Files: {}", img.files.len());
                 println!();
             }
@@ -1068,9 +1091,12 @@ async fn handle_image_command(cmd: ImageCommands) -> Result<()> {
 
             println!("=== Image: {} ===\n", name);
             println!("Path: {}", metadata.path.display());
-            println!("Created: {}", chrono::DateTime::from_timestamp(metadata.created, 0)
-                .map(|d| d.format("%Y-%m-%d %H:%M:%S").to_string())
-                .unwrap_or_else(|| "Unknown".to_string()));
+            println!(
+                "Created: {}",
+                chrono::DateTime::from_timestamp(metadata.created, 0)
+                    .map(|d| d.format("%Y-%m-%d %H:%M:%S").to_string())
+                    .unwrap_or_else(|| "Unknown".to_string())
+            );
             println!("Total size: {} bytes", metadata.total_size);
             println!("Unique size: {} bytes", metadata.unique_size);
             println!("Symlinked size: {} bytes", metadata.symlinked_size);
@@ -1078,15 +1104,19 @@ async fn handle_image_command(cmd: ImageCommands) -> Result<()> {
 
             for file in &metadata.files {
                 if file.is_symlink {
-                    println!("  {} -> {} (symlink, {} bytes)",
+                    println!(
+                        "  {} -> {} (symlink, {} bytes)",
                         file.path.display(),
                         file.symlink_target.as_ref().unwrap().display(),
-                        file.size);
+                        file.size
+                    );
                 } else {
-                    println!("  {} ({} bytes, hash: {})",
+                    println!(
+                        "  {} ({} bytes, hash: {})",
                         file.path.display(),
                         file.size,
-                        file.hash.as_ref().map(|h| &h[..16]).unwrap_or("none"));
+                        file.hash.as_ref().map(|h| &h[..16]).unwrap_or("none")
+                    );
                 }
             }
 
@@ -1255,7 +1285,6 @@ async fn handle_cache_command(cmd: CacheCommands) -> Result<()> {
 
 #[cfg(any(feature = "mcp", feature = "web"))]
 async fn handle_index_command(cmd: IndexCommands) -> Result<()> {
-
     match cmd {
         IndexCommands::Build { output } => {
             println!("🔍 Building complete D-Bus index...");
@@ -1277,10 +1306,8 @@ async fn handle_index_command(cmd: IndexCommands) -> Result<()> {
             println!();
             println!("📸 Creating snapshot...");
             let snapshots_dir = PathBuf::from("/var/lib/op-dbus/@snapshots/dbus-index");
-            let snapshot_mgr = SnapshotManager::with_policy(
-                &snapshots_dir,
-                RetentionPolicy::Rolling { keep: 3 }
-            );
+            let snapshot_mgr =
+                SnapshotManager::with_policy(&snapshots_dir, RetentionPolicy::Rolling { keep: 3 });
 
             match snapshot_mgr.create_snapshot(&output, None) {
                 Ok(snapshot_path) => {
@@ -1342,17 +1369,29 @@ async fn handle_index_command(cmd: IndexCommands) -> Result<()> {
 
             println!("=== D-Bus Index Statistics ===\n");
             println!("Index version:    {}", dbus_index.version);
-            println!("Last updated:     {}", chrono::DateTime::from_timestamp(dbus_index.timestamp, 0)
-                .map(|dt| dt.to_rfc3339())
-                .unwrap_or_else(|| "Unknown".to_string()));
+            println!(
+                "Last updated:     {}",
+                chrono::DateTime::from_timestamp(dbus_index.timestamp, 0)
+                    .map(|dt| dt.to_rfc3339())
+                    .unwrap_or_else(|| "Unknown".to_string())
+            );
             println!();
             println!("Services:         {}", dbus_index.statistics.total_services);
             println!("Objects:          {}", dbus_index.statistics.total_objects);
-            println!("Interfaces:       {}", dbus_index.statistics.total_interfaces);
+            println!(
+                "Interfaces:       {}",
+                dbus_index.statistics.total_interfaces
+            );
             println!("Methods:          {}", dbus_index.statistics.total_methods);
-            println!("Properties:       {}", dbus_index.statistics.total_properties);
+            println!(
+                "Properties:       {}",
+                dbus_index.statistics.total_properties
+            );
             println!();
-            println!("Scan duration:    {:.2}s", dbus_index.statistics.scan_duration_seconds);
+            println!(
+                "Scan duration:    {:.2}s",
+                dbus_index.statistics.scan_duration_seconds
+            );
             println!("Index location:   {}", index.display());
 
             Ok(())
@@ -1366,15 +1405,21 @@ async fn handle_index_command(cmd: IndexCommands) -> Result<()> {
             let current_index = current_indexer.load()?;
 
             println!("=== D-Bus Index Diff ===\n");
-            println!("Baseline: {} ({} services)",
+            println!(
+                "Baseline: {} ({} services)",
                 baseline.display(),
-                baseline_index.statistics.total_services);
-            println!("Current:  {} ({} services)\n",
+                baseline_index.statistics.total_services
+            );
+            println!(
+                "Current:  {} ({} services)\n",
                 current.display(),
-                current_index.statistics.total_services);
+                current_index.statistics.total_services
+            );
 
             // Services added
-            let added: Vec<_> = current_index.services.keys()
+            let added: Vec<_> = current_index
+                .services
+                .keys()
                 .filter(|k| !baseline_index.services.contains_key(*k))
                 .collect();
             if !added.is_empty() {
@@ -1386,7 +1431,9 @@ async fn handle_index_command(cmd: IndexCommands) -> Result<()> {
             }
 
             // Services removed
-            let removed: Vec<_> = baseline_index.services.keys()
+            let removed: Vec<_> = baseline_index
+                .services
+                .keys()
                 .filter(|k| !current_index.services.contains_key(*k))
                 .collect();
             if !removed.is_empty() {
@@ -1420,7 +1467,10 @@ async fn handle_index_command(cmd: IndexCommands) -> Result<()> {
                         .unwrap_or_else(|| "Unknown".to_string());
 
                     let tag_info = if snapshot.tagged {
-                        format!(" [TAGGED: {}]", snapshot.tag.as_ref().unwrap_or(&"golden".to_string()))
+                        format!(
+                            " [TAGGED: {}]",
+                            snapshot.tag.as_ref().unwrap_or(&"golden".to_string())
+                        )
                     } else {
                         String::new()
                     };
@@ -1440,10 +1490,8 @@ async fn handle_index_command(cmd: IndexCommands) -> Result<()> {
             println!("📸 Creating manual snapshot...");
 
             let snapshots_dir = PathBuf::from("/var/lib/op-dbus/@snapshots/dbus-index");
-            let snapshot_mgr = SnapshotManager::with_policy(
-                &snapshots_dir,
-                RetentionPolicy::Rolling { keep: 3 }
-            );
+            let snapshot_mgr =
+                SnapshotManager::with_policy(&snapshots_dir, RetentionPolicy::Rolling { keep: 3 });
 
             let snapshot_path = snapshot_mgr.create_snapshot(&index, name.as_deref())?;
             println!("   Created: {}", snapshot_path.display());
@@ -1463,15 +1511,16 @@ async fn handle_index_command(cmd: IndexCommands) -> Result<()> {
 
         IndexCommands::Cleanup { index, force } => {
             let snapshots_dir = PathBuf::from("/var/lib/op-dbus/@snapshots/dbus-index");
-            let snapshot_mgr = SnapshotManager::with_policy(
-                &snapshots_dir,
-                RetentionPolicy::Rolling { keep: 3 }
-            );
+            let snapshot_mgr =
+                SnapshotManager::with_policy(&snapshots_dir, RetentionPolicy::Rolling { keep: 3 });
 
             let snapshots = snapshot_mgr.list_snapshots()?;
 
             if snapshots.len() <= 3 {
-                println!("✅ No cleanup needed - only {} snapshot(s) exist", snapshots.len());
+                println!(
+                    "✅ No cleanup needed - only {} snapshot(s) exist",
+                    snapshots.len()
+                );
                 return Ok(());
             }
 
@@ -1497,7 +1546,10 @@ async fn handle_index_command(cmd: IndexCommands) -> Result<()> {
             snapshot_mgr.apply_retention_policy()?;
 
             let remaining = snapshot_mgr.list_snapshots()?;
-            println!("✅ Cleanup complete - {} snapshot(s) remaining", remaining.len());
+            println!(
+                "✅ Cleanup complete - {} snapshot(s) remaining",
+                remaining.len()
+            );
 
             Ok(())
         }
@@ -1510,10 +1562,12 @@ async fn handle_index_command(cmd: IndexCommands) -> Result<()> {
             let result = indexer.verify_completeness().await?;
 
             println!("=== D-Bus Index Verification ===\n");
-            println!("Timestamp:         {}",
+            println!(
+                "Timestamp:         {}",
                 chrono::DateTime::from_timestamp(result.timestamp, 0)
                     .map(|d| d.to_rfc3339())
-                    .unwrap_or_else(|| "Unknown".to_string()));
+                    .unwrap_or_else(|| "Unknown".to_string())
+            );
             println!("Live services:     {}", result.live_services);
             println!("Indexed services:  {}", result.index_services);
             println!("Coverage:          {:.1}%", result.coverage_percent);
@@ -1522,7 +1576,10 @@ async fn handle_index_command(cmd: IndexCommands) -> Result<()> {
             if result.index_complete {
                 println!("✅ Index is COMPLETE - all live services are indexed");
             } else {
-                println!("⚠️  Index is INCOMPLETE - {} service(s) missing", result.missing_from_index.len());
+                println!(
+                    "⚠️  Index is INCOMPLETE - {} service(s) missing",
+                    result.missing_from_index.len()
+                );
 
                 if verbose || result.missing_from_index.len() <= 10 {
                     println!("\nMissing services:");
@@ -1530,7 +1587,10 @@ async fn handle_index_command(cmd: IndexCommands) -> Result<()> {
                         println!("  - {}", service);
                     }
                 } else {
-                    println!("\nMissing services (showing first 10 of {}):", result.missing_from_index.len());
+                    println!(
+                        "\nMissing services (showing first 10 of {}):",
+                        result.missing_from_index.len()
+                    );
                     for service in result.missing_from_index.iter().take(10) {
                         println!("  - {}", service);
                     }
@@ -1539,8 +1599,10 @@ async fn handle_index_command(cmd: IndexCommands) -> Result<()> {
             }
 
             if !result.extra_in_index.is_empty() {
-                println!("\n📝 Note: {} service(s) in index but not currently running",
-                    result.extra_in_index.len());
+                println!(
+                    "\n📝 Note: {} service(s) in index but not currently running",
+                    result.extra_in_index.len()
+                );
                 println!("   (These were indexed previously but the services have stopped)");
 
                 if verbose && result.extra_in_index.len() <= 20 {

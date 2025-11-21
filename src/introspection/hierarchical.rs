@@ -11,8 +11,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use tracing::{debug, info, warn};
-use zbus::{Connection, Proxy};
 use zbus::zvariant;
+use zbus::{Connection, Proxy};
 use zbus_xml::Node;
 
 /// Hierarchical D-Bus introspection snapshot
@@ -178,7 +178,10 @@ impl HierarchicalIntrospector {
         // Create introspection subdirectory
         tokio::fs::create_dir_all(&introspection_cache).await?;
 
-        info!("Hierarchical introspection cache: {}", introspection_cache.display());
+        info!(
+            "Hierarchical introspection cache: {}",
+            introspection_cache.display()
+        );
 
         Ok(Self { cache_dir })
     }
@@ -220,7 +223,8 @@ impl HierarchicalIntrospector {
         // Save to cache
         self.save_to_cache(&introspection).await?;
 
-        info!("Introspection complete: {} services, {} objects, {} interfaces",
+        info!(
+            "Introspection complete: {} services, {} objects, {} interfaces",
             introspection.summary.total_services,
             introspection.summary.total_objects,
             introspection.summary.total_interfaces
@@ -250,10 +254,15 @@ impl HierarchicalIntrospector {
         for service_name in service_names {
             debug!("Introspecting service: {}", service_name);
 
-            match self.introspect_service(&connection, &service_name, bus_type).await {
+            match self
+                .introspect_service(&connection, &service_name, bus_type)
+                .await
+            {
                 Ok(service_data) => {
                     total_objects += service_data.objects.len();
-                    total_interfaces += service_data.objects.values()
+                    total_interfaces += service_data
+                        .objects
+                        .values()
                         .map(|obj| obj.interfaces.len())
                         .sum::<usize>();
 
@@ -301,30 +310,30 @@ impl HierarchicalIntrospector {
         // Try ObjectManager first (most efficient)
         let root_path = Self::guess_root_path(service_name);
 
-        if let Ok(managed_objects) = self.try_object_manager(conn, service_name, &root_path).await {
+        if let Ok(managed_objects) = self
+            .try_object_manager(conn, service_name, &root_path)
+            .await
+        {
             info!("Service {} provides ObjectManager", service_name);
             used_object_manager = true;
 
             // Parse managed objects into our format
             for (path, iface_data) in managed_objects {
-                let obj_data = self.introspect_object_by_path(
-                    conn,
-                    service_name,
-                    &path,
-                ).await?;
+                let obj_data = self
+                    .introspect_object_by_path(conn, service_name, &path)
+                    .await?;
 
                 objects.insert(path.to_string(), obj_data);
             }
         } else {
             // Fall back to recursive introspection
-            debug!("ObjectManager not available for {}, using recursive introspection", service_name);
+            debug!(
+                "ObjectManager not available for {}, using recursive introspection",
+                service_name
+            );
 
-            self.introspect_recursively(
-                conn,
-                service_name,
-                &root_path,
-                &mut objects,
-            ).await?;
+            self.introspect_recursively(conn, service_name, &root_path, &mut objects)
+                .await?;
         }
 
         Ok(ServiceIntrospection {
@@ -348,21 +357,28 @@ impl HierarchicalIntrospector {
             service_name,
             root_path,
             "org.freedesktop.DBus.ObjectManager",
-        ).await?;
+        )
+        .await?;
 
         // Call GetManagedObjects
-        let result: HashMap<zbus::zvariant::OwnedObjectPath, HashMap<String, HashMap<String, zbus::zvariant::OwnedValue>>> =
-            proxy.call("GetManagedObjects", &()).await?;
+        let result: HashMap<
+            zbus::zvariant::OwnedObjectPath,
+            HashMap<String, HashMap<String, zbus::zvariant::OwnedValue>>,
+        > = proxy.call("GetManagedObjects", &()).await?;
 
         // Convert to string keys
-        Ok(result.into_iter().map(|(path, ifaces)| {
-            (
-                path.to_string(),
-                ifaces.into_iter().map(|(iface, props)| {
-                    (iface.to_string(), props)
-                }).collect()
-            )
-        }).collect())
+        Ok(result
+            .into_iter()
+            .map(|(path, ifaces)| {
+                (
+                    path.to_string(),
+                    ifaces
+                        .into_iter()
+                        .map(|(iface, props)| (iface.to_string(), props))
+                        .collect(),
+                )
+            })
+            .collect())
     }
 
     /// Recursively introspect object tree starting from a root path
@@ -374,7 +390,9 @@ impl HierarchicalIntrospector {
         objects: &mut HashMap<String, ObjectIntrospection>,
     ) -> Result<()> {
         // Introspect this object
-        let obj_data = self.introspect_object_by_path(conn, service_name, path).await?;
+        let obj_data = self
+            .introspect_object_by_path(conn, service_name, path)
+            .await?;
 
         // Collect children before inserting (to avoid borrow issues)
         let children = obj_data.children.clone();
@@ -407,7 +425,8 @@ impl HierarchicalIntrospector {
             service_name,
             path,
             "org.freedesktop.DBus.Introspectable",
-        ).await?;
+        )
+        .await?;
 
         // Try to introspect
         match proxy.introspect().await {
@@ -417,13 +436,15 @@ impl HierarchicalIntrospector {
                     .context("Failed to parse introspection XML")?;
 
                 // Extract interfaces
-                let interfaces = node.interfaces()
+                let interfaces = node
+                    .interfaces()
                     .iter()
                     .map(|iface| self.parse_interface(iface))
                     .collect();
 
                 // Extract child node names
-                let children = node.nodes()
+                let children = node
+                    .nodes()
                     .iter()
                     .map(|child| child.name().unwrap_or("").to_string())
                     .filter(|name| !name.is_empty())
@@ -454,13 +475,17 @@ impl HierarchicalIntrospector {
 
     /// Parse interface from zbus_xml::Interface
     fn parse_interface(&self, iface: &zbus_xml::Interface) -> InterfaceIntrospection {
-        let methods = iface.methods()
+        let methods = iface
+            .methods()
             .iter()
             .map(|method| {
-                let inputs = method.args()
+                let inputs = method
+                    .args()
                     .iter()
                     .filter(|arg| {
-                        arg.direction().map(|d| matches!(d, zbus_xml::ArgDirection::In)).unwrap_or(true)
+                        arg.direction()
+                            .map(|d| matches!(d, zbus_xml::ArgDirection::In))
+                            .unwrap_or(true)
                     })
                     .map(|arg| ArgumentIntrospection {
                         name: arg.name().map(String::from),
@@ -469,10 +494,13 @@ impl HierarchicalIntrospector {
                     })
                     .collect();
 
-                let outputs = method.args()
+                let outputs = method
+                    .args()
                     .iter()
                     .filter(|arg| {
-                        arg.direction().map(|d| matches!(d, zbus_xml::ArgDirection::Out)).unwrap_or(false)
+                        arg.direction()
+                            .map(|d| matches!(d, zbus_xml::ArgDirection::Out))
+                            .unwrap_or(false)
                     })
                     .map(|arg| ArgumentIntrospection {
                         name: arg.name().map(String::from),
@@ -489,7 +517,8 @@ impl HierarchicalIntrospector {
             })
             .collect();
 
-        let properties = iface.properties()
+        let properties = iface
+            .properties()
             .iter()
             .map(|prop| PropertyIntrospection {
                 name: prop.name().to_string(),
@@ -502,10 +531,12 @@ impl HierarchicalIntrospector {
             })
             .collect();
 
-        let signals = iface.signals()
+        let signals = iface
+            .signals()
             .iter()
             .map(|signal| {
-                let args = signal.args()
+                let args = signal
+                    .args()
                     .iter()
                     .map(|arg| ArgumentIntrospection {
                         name: arg.name().map(String::from),
@@ -543,7 +574,10 @@ impl HierarchicalIntrospector {
     }
 
     /// Calculate summary statistics
-    fn calculate_summary(system: &BusIntrospection, session: &BusIntrospection) -> IntrospectionSummary {
+    fn calculate_summary(
+        system: &BusIntrospection,
+        session: &BusIntrospection,
+    ) -> IntrospectionSummary {
         let total_services = system.services.len() + session.services.len();
         let total_objects = system.total_objects + session.total_objects;
         let total_interfaces = system.total_interfaces + session.total_interfaces;

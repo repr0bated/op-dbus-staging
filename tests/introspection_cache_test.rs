@@ -269,7 +269,8 @@ mod cache_tests {
 
         // Verify both services are cached
         let stats = cache.get_stats()?;
-        let total_services = stats.get("total_services")
+        let total_services = stats
+            .get("total_services")
             .and_then(|v| v.as_u64())
             .unwrap_or(0);
 
@@ -305,8 +306,11 @@ mod cache_tests {
         let duration = start.elapsed();
 
         // 100 queries should complete in under 100ms (1ms per query average)
-        assert!(duration.as_millis() < 100,
-            "Cache queries too slow: {:?}", duration);
+        assert!(
+            duration.as_millis() < 100,
+            "Cache queries too slow: {:?}",
+            duration
+        );
 
         println!("Cache performance: {} queries in {:?}", 100, duration);
 

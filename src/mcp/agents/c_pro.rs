@@ -1,11 +1,13 @@
 use serde::Deserialize;
 use std::process::Command;
 use uuid::Uuid;
-use zbus::{interface, connection::Builder, object_server::SignalEmitter};
+use zbus::{connection::Builder, interface, object_server::SignalEmitter};
 
 // Security configuration
 const ALLOWED_DIRECTORIES: &[&str] = &["/tmp", "/home", "/opt"];
-const FORBIDDEN_CHARS: &[char] = &['$', '`', ';', '&', '|', '>', '<', '(', ')', '{', '}', '\n', '\r'];
+const FORBIDDEN_CHARS: &[char] = &[
+    '$', '`', ';', '&', '|', '>', '<', '(', ')', '{', '}', '\n', '\r',
+];
 const MAX_PATH_LENGTH: usize = 4096;
 
 #[derive(Debug, Deserialize)]
@@ -78,7 +80,8 @@ impl CProAgent {
 
     /// Signal emitted when task completes
     #[zbus(signal)]
-    async fn task_completed(signal_emitter: &SignalEmitter<'_>, result: String) -> zbus::Result<()>;
+    async fn task_completed(signal_emitter: &SignalEmitter<'_>, result: String)
+        -> zbus::Result<()>;
 }
 
 impl CProAgent {
@@ -155,15 +158,23 @@ impl CProAgent {
             return Err("Path required for compilation".to_string());
         }
 
-        let output = cmd.output().map_err(|e| format!("Failed to run gcc: {}", e))?;
+        let output = cmd
+            .output()
+            .map_err(|e| format!("Failed to run gcc: {}", e))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
 
         if output.status.success() {
-            Ok(format!("Compilation succeeded\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Compilation succeeded\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         } else {
-            Ok(format!("Compilation failed\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Compilation failed\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         }
     }
 
@@ -178,13 +189,18 @@ impl CProAgent {
             return Err("Path required for valgrind".to_string());
         }
 
-        let output = cmd.output().map_err(|e| format!("Failed to run valgrind: {}", e))?;
+        let output = cmd
+            .output()
+            .map_err(|e| format!("Failed to run valgrind: {}", e))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
 
         // Valgrind always returns non-zero, so don't check success
-        Ok(format!("Valgrind output\nstdout: {}\nstderr: {}", stdout, stderr))
+        Ok(format!(
+            "Valgrind output\nstdout: {}\nstderr: {}",
+            stdout, stderr
+        ))
     }
 
     fn clang_tidy(&self, path: Option<&str>) -> Result<String, String> {
@@ -197,15 +213,23 @@ impl CProAgent {
             return Err("Path required for clang-tidy".to_string());
         }
 
-        let output = cmd.output().map_err(|e| format!("Failed to run clang-tidy: {}", e))?;
+        let output = cmd
+            .output()
+            .map_err(|e| format!("Failed to run clang-tidy: {}", e))?;
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
 
         if output.status.success() {
-            Ok(format!("Clang-tidy passed\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Clang-tidy passed\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         } else {
-            Ok(format!("Clang-tidy found issues\nstdout: {}\nstderr: {}", stdout, stderr))
+            Ok(format!(
+                "Clang-tidy found issues\nstdout: {}\nstderr: {}",
+                stdout, stderr
+            ))
         }
     }
 }
@@ -217,10 +241,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let agent_id = if args.len() > 1 {
         args[1].clone()
     } else {
-        format!(
-            "c-pro-{}",
-            Uuid::new_v4().to_string()[..8].to_string()
-        )
+        format!("c-pro-{}", Uuid::new_v4().to_string()[..8].to_string())
     };
 
     println!("Starting C Pro Agent: {}", agent_id);

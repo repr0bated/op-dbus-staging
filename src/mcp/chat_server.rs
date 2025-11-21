@@ -5,13 +5,14 @@ use axum::{
     Json, Router,
 };
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::{collections::HashMap, sync::Arc, time::SystemTime};
 use tokio::sync::{broadcast, RwLock};
 use tower_http::cors::CorsLayer;
 
 use super::agent_registry::AgentRegistry;
-use super::tool_registry::ToolRegistry;
 use super::ollama::OllamaClient;
+use super::tool_registry::{ToolRegistry, ToolRegistryService};
 
 // Chat message types
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -165,7 +166,10 @@ impl NaturalLanguageProcessor {
                 CommandIntent::ExecuteTool {
                     tool_name: "network".to_string(),
                 }
-            } else if lower.contains("discover") || lower.contains("introspect") || lower.contains("hardware") {
+            } else if lower.contains("discover")
+                || lower.contains("introspect")
+                || lower.contains("hardware")
+            {
                 // System introspection
                 if lower.contains("provider") || lower.contains("isp") {
                     parameters.insert("detect_provider".to_string(), serde_json::Value::Bool(true));
@@ -173,12 +177,17 @@ impl NaturalLanguageProcessor {
                 CommandIntent::ExecuteTool {
                     tool_name: "discover_system".to_string(),
                 }
-            } else if lower.contains("cpu") && (lower.contains("feature") || lower.contains("bios") || lower.contains("lock")) {
+            } else if lower.contains("cpu")
+                && (lower.contains("feature") || lower.contains("bios") || lower.contains("lock"))
+            {
                 // CPU feature analysis
                 CommandIntent::ExecuteTool {
                     tool_name: "analyze_cpu_features".to_string(),
                 }
-            } else if lower.contains("isp") || lower.contains("provider") || lower.contains("migrate") {
+            } else if lower.contains("isp")
+                || lower.contains("provider")
+                || lower.contains("migrate")
+            {
                 // ISP analysis
                 CommandIntent::ExecuteTool {
                     tool_name: "analyze_isp".to_string(),
@@ -198,12 +207,29 @@ impl NaturalLanguageProcessor {
                 CommandIntent::AIChat { message: query }
             } else {
                 // Check if this looks like AI chat (general conversation)
-                let ai_keywords = ["tell me", "what is", "how do", "explain", "why", "when", "where", "who", "can you", "should i", "recommend"];
+                let ai_keywords = [
+                    "tell me",
+                    "what is",
+                    "how do",
+                    "explain",
+                    "why",
+                    "when",
+                    "where",
+                    "who",
+                    "can you",
+                    "should i",
+                    "recommend",
+                ];
                 let is_ai_chat = ai_keywords.iter().any(|&keyword| lower.contains(keyword))
-                    || (!lower.contains("list") && !lower.contains("status") && !lower.contains("help") && lower.split_whitespace().count() > 3);
+                    || (!lower.contains("list")
+                        && !lower.contains("status")
+                        && !lower.contains("help")
+                        && lower.split_whitespace().count() > 3);
 
                 if is_ai_chat {
-                    CommandIntent::AIChat { message: input.to_string() }
+                    CommandIntent::AIChat {
+                        message: input.to_string(),
+                    }
                 } else {
                     CommandIntent::Unknown
                 }
@@ -276,10 +302,11 @@ pub struct ChatServerState {
     pub conversations: Arc<RwLock<HashMap<String, ConversationContext>>>,
     pub broadcast_tx: broadcast::Sender<ChatMessage>,
     pub ollama_client: Option<Arc<OllamaClient>>,
+    pub registry_service: Arc<ToolRegistryService>,
 }
 
 impl ChatServerState {
-    pub fn new(tool_registry: Arc<ToolRegistry>, agent_registry: Arc<AgentRegistry>) -> Self {
+    pub fn new(tool_registry: Arc<ToolRegistry>, agent_registry: Arc<AgentRegistry>, registry_service: Arc<ToolRegistryService>) -> Self {
         let (broadcast_tx, _) = broadcast::channel(100);
 
         Self {
@@ -288,12 +315,18 @@ impl ChatServerState {
             conversations: Arc::new(RwLock::new(HashMap::new())),
             broadcast_tx,
             ollama_client: None,
+            registry_service,
         }
     }
 
     pub fn with_ollama_client(mut self, client: OllamaClient) -> Self {
         self.ollama_client = Some(Arc::new(client));
         self
+    }
+
+    pub async fn get_system_context(&self) -> anyhow::Result<serde_json::Value> {
+        let summary = self.registry_service.get_introspection_summary().await?;
+        Ok(serde_json::to_value(summary)?)
     }
 
     pub async fn process_message(&self, conversation_id: &str, message: &str) -> ChatMessage {
@@ -361,18 +394,22 @@ impl ChatServerState {
             .await
         {
             Ok(result) => {
-                let content_str = result
-                    .content
-                    .iter()
-                    .filter_map(|c| c.text.as_ref())
-                    .map(|s| s.as_str())
-                    .collect::<Vec<_>>()
-                    .join("\n");
+                // Extract natural language response from tool result
+                let content_str = if result.content.is_empty() {
+                    "Tool executed successfully with no output.".to_string()
+                } else {
+                    result
+                        .content
+                        .iter()
+                        .filter_map(|c| c.text.as_ref())
+                        .map(|s| s.as_str())
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                };
+
+                // Return clean natural language response
                 ChatMessage::Assistant {
-                    content: format!(
-                        "✅ Tool '{}' executed successfully:\n{}",
-                        tool_name, content_str
-                    ),
+                    content: content_str,
                     timestamp: SystemTime::now()
                         .duration_since(SystemTime::UNIX_EPOCH)
                         .unwrap()
@@ -466,6 +503,22 @@ impl ChatServerState {
             // Build comprehensive system context
             let system_context = self.build_system_context().await;
 
+            // Get system summary from introspection
+            let system_summary = match self.get_system_context().await {
+                Ok(summary) => summary,
+                Err(e) => {
+                    log::warn!("Failed to get system context: {}", e);
+                    json!({})
+                }
+            };
+
+            // Combine context with system summary
+            let full_context = format!(
+                "{}\n\nSYSTEM SUMMARY FROM INTROSPECTION:\n{}",
+                system_context,
+                serde_json::to_string_pretty(&system_summary).unwrap_or_default()
+            );
+
             // Build available tools description
             let tools_description = self.build_tools_description().await;
 
@@ -474,13 +527,16 @@ impl ChatServerState {
             let history: Vec<super::ollama::ChatMessage> = vec![];
 
             let model = ollama_client.default_model();
-            match ollama_client.chat_with_tools(
-                &model,
-                message,
-                &system_context,
-                &history,
-                &tools_description,
-            ).await {
+            match ollama_client
+                .chat_with_tools(
+                    &model,
+                    message,
+                    &full_context,
+                    &history,
+                    &tools_description,
+                )
+                .await
+            {
                 Ok(response) => {
                     // Check if the response suggests using a tool
                     let suggested_tools = self.extract_tool_suggestions(&response).await;
@@ -499,7 +555,7 @@ impl ChatServerState {
                             tools
                         },
                     }
-                },
+                }
                 Err(e) => ChatMessage::Error {
                     content: format!("AI chat failed: {}", e),
                     timestamp: SystemTime::now()
@@ -579,10 +635,15 @@ impl ChatServerState {
         // Add special introspection tools
         description.push_str("\nSPECIAL CAPABILITIES:\n");
         description.push_str("• discover_system - Full hardware and system introspection\n");
-        description.push_str("• analyze_cpu_features - Detect VT-x, IOMMU, SGX, Turbo Boost, and BIOS locks\n");
-        description.push_str("• analyze_isp - Analyze current ISP restrictions and recommend alternatives\n");
+        description.push_str(
+            "• analyze_cpu_features - Detect VT-x, IOMMU, SGX, Turbo Boost, and BIOS locks\n",
+        );
+        description.push_str(
+            "• analyze_isp - Analyze current ISP restrictions and recommend alternatives\n",
+        );
         description.push_str("• compare_hardware - Compare hardware configurations\n");
-        description.push_str("• generate_isp_request - Generate unlock request for restricted features\n");
+        description
+            .push_str("• generate_isp_request - Generate unlock request for restricted features\n");
         description.push_str("\nSYSTEM TOOLS:\n");
         description.push_str("• systemd - Query and manage systemd services\n");
         description.push_str("• file - Read, write, and manipulate files\n");
@@ -608,8 +669,11 @@ impl ChatServerState {
 
         // Check for special tool mentions
         let special_tools = vec![
-            "discover_system", "analyze_cpu_features", "analyze_isp",
-            "compare_hardware", "generate_isp_request"
+            "discover_system",
+            "analyze_cpu_features",
+            "analyze_isp",
+            "compare_hardware",
+            "generate_isp_request",
         ];
 
         for tool in special_tools {

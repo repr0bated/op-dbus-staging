@@ -193,8 +193,14 @@ impl OpenFlowClient {
 
         // Parse message based on type
         match header.message_type {
-            0 => Ok(Box::new(OpenFlowHello::from_bytes(header.xid, &payload_buf)?)),
-            6 => Ok(Box::new(OpenFlowFeaturesReply::from_bytes(header.xid, &payload_buf)?)),
+            0 => Ok(Box::new(OpenFlowHello::from_bytes(
+                header.xid,
+                &payload_buf,
+            )?)),
+            6 => Ok(Box::new(OpenFlowFeaturesReply::from_bytes(
+                header.xid,
+                &payload_buf,
+            )?)),
             _ => {
                 // For now, return a generic message
                 Ok(Box::new(OpenFlowGenericMessage {
@@ -237,7 +243,9 @@ impl OpenFlowClient {
         if let Some(features) = reply.as_any().downcast_ref::<OpenFlowFeaturesReply>() {
             Ok(features.clone())
         } else {
-            Err(anyhow::anyhow!("Expected FeaturesReply, got different message type"))
+            Err(anyhow::anyhow!(
+                "Expected FeaturesReply, got different message type"
+            ))
         }
     }
 

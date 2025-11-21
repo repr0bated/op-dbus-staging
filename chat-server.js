@@ -18,7 +18,7 @@ const app = express();
 const PORT = 8080;
 const BIND_IP = '0.0.0.0'; // Listen on all interfaces
 // AI API Configuration
-const AI_PROVIDER = process.env.AI_PROVIDER || 'ollama'; // 'ollama', 'grok', 'gemini', 'huggingface', or 'cursor-agent'
+let AI_PROVIDER = process.env.AI_PROVIDER || 'ollama'; // 'ollama', 'grok', 'gemini', 'huggingface', or 'cursor-agent'
 const GROK_API_KEY = process.env.GROK_API_KEY || '';
 const GROK_MODEL = process.env.GROK_MODEL || 'grok-beta';
 const GROK_BASE_URL = 'https://api.x.ai/v1';
@@ -31,25 +31,38 @@ let HF_MODEL = process.env.HF_MODEL || 'microsoft/DialoGPT-medium'; // Mutable f
 
 // Available Gemini models (can be updated based on rate limits)
 const GEMINI_MODELS = [
-    { id: 'gemini-2.0-flash-exp', name: 'Gemini 2.0 Flash (Experimental)', tier: 'free', available: true },
-    { id: 'gemini-2.0-flash-thinking-exp-1219', name: 'Gemini 2.0 Flash Thinking', tier: 'free', available: true },
-    { id: 'gemini-exp-1206', name: 'Gemini Experimental (1206)', tier: 'free', available: true },
-    { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', tier: 'free', available: true },
-    { id: 'gemini-1.5-flash-8b', name: 'Gemini 1.5 Flash 8B', tier: 'free', available: true },
-    { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', tier: 'free', available: true },
+    // Gemini 3 Series (Latest - LIMITED: 50 RPM, 1M TPM, 1K RPD)
+    { id: 'gemini-3-pro', name: 'Gemini 3 Pro ⚠️ Limited', tier: 'free', available: true },
+
+    // Highest Allowance Models - Unlimited RPD
+    { id: 'gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite (4K RPM, 4M TPM)', tier: 'free', available: true },
+    { id: 'gemini-2.0-flash-lite', name: 'Gemini 2.0 Flash Lite (4K RPM, 4M TPM)', tier: 'free', available: true },
+    { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash (2K RPM, 4M TPM)', tier: 'free', available: true },
+
+    // High Allowance Models
+    { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (1K RPM, 1M TPM)', tier: 'free', available: true },
+    { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro (150 RPM, 2M TPM)', tier: 'free', available: true },
+    { id: 'gemini-2.5-pro-exp', name: 'Gemini 2.5 Pro Exp (150 RPM, 2M TPM)', tier: 'free', available: true },
+
+    // Experimental Models
+    { id: 'gemini-2.0-flash-exp', name: 'Gemini 2.0 Flash Exp (10 RPM, 250K TPM)', tier: 'free', available: true },
+
+    // Live API Models (Unlimited RPM/RPD)
+    { id: 'gemini-2.5-flash-live', name: 'Gemini 2.5 Flash Live (Unlimited RPM)', tier: 'free', available: true },
+    { id: 'gemini-2.0-flash-live', name: 'Gemini 2.0 Flash Live (Unlimited RPM)', tier: 'free', available: true },
 ];
 
 // Available Hugging Face models
 const HF_MODELS = [
-    { id: 'microsoft/DialoGPT-medium', name: 'DialoGPT Medium (Free)', tier: 'free', available: true },
-    { id: 'microsoft/DialoGPT-large', name: 'DialoGPT Large (Free)', tier: 'free', available: true },
-    { id: 'microsoft/DialoGPT-small', name: 'DialoGPT Small (Free)', tier: 'free', available: true },
-    { id: 'microsoft/phi-2', name: 'Phi-2 (Free)', tier: 'free', available: true },
-    { id: 'mistralai/Mistral-7B-Instruct-v0.1', name: 'Mistral 7B Instruct', tier: 'paid', available: true },
-    { id: 'meta-llama/Llama-2-7b-chat-hf', name: 'Llama 2 7B Chat', tier: 'paid', available: true },
-    { id: 'google/gemma-7b-it', name: 'Gemma 7B IT', tier: 'paid', available: true },
-    { id: 'HuggingFaceH4/zephyr-7b-beta', name: 'Zephyr 7B Beta', tier: 'paid', available: true },
-    { id: 'microsoft/Orca-2-7b', name: 'Orca 2 7B', tier: 'paid', available: true },
+    { id: 'Qwen/Qwen2.5-VL-7B-Instruct', name: 'Qwen 2.5 VL 7B (Vision+Text)', tier: 'free', available: true },
+    { id: 'Qwen/Qwen2.5-72B-Instruct', name: 'Qwen 2.5 72B Instruct', tier: 'free', available: true },
+    { id: 'Qwen/Qwen3-235B-A22B-Instruct-2507', name: 'Qwen 3 235B Instruct', tier: 'free', available: true },
+    { id: 'meta-llama/Meta-Llama-3.1-8B-Instruct', name: 'Llama 3.1 8B Instruct', tier: 'free', available: true },
+    { id: 'meta-llama/Meta-Llama-3.3-70B-Instruct', name: 'Llama 3.3 70B Instruct', tier: 'free', available: true },
+    { id: 'microsoft/Phi-3-mini-4k-instruct', name: 'Phi-3 Mini 4K', tier: 'free', available: true },
+    { id: 'microsoft/DialoGPT-medium', name: 'DialoGPT Medium', tier: 'free', available: true },
+    { id: 'mistralai/Mistral-7B-Instruct-v0.1', name: 'Mistral 7B Instruct', tier: 'free', available: true },
+    { id: 'deepseek-ai/DeepSeek-V3', name: 'DeepSeek V3', tier: 'free', available: true },
 ];
 
 // Initialize Gemini AI client
@@ -81,10 +94,10 @@ const FORBIDDEN_COMMANDS = [
     'nmcli',
     'nmtui',
 
-    // Network interfaces - Use rtnetlink/D-Bus instead
-    'ip',
-    'ifconfig',
-    'route',
+    // Network interfaces - rtnetlink/D-Bus available but direct commands also allowed
+    // 'ip' - removed from forbidden list
+    // 'ifconfig' - removed from forbidden list
+    // 'route' - removed from forbidden list
 
     // Firewall - Use nftables API/D-Bus directly
     'iptables',
@@ -236,30 +249,20 @@ async function callAI(messages, systemPrompt) {
             timeout: 120000
         });
     } else if (AI_PROVIDER === 'huggingface') {
-        // Hugging Face Inference API
+        // Hugging Face Chat Completions API (OpenAI-compatible)
         if (!HF_TOKEN) {
             throw new Error('Hugging Face token not configured');
         }
 
-        const conversation = messages.map(msg => {
-            if (msg.role === 'system') {
-                return `System: ${msg.content}`;
-            } else if (msg.role === 'user') {
-                return `User: ${msg.content}`;
-            } else {
-                return msg.content;
-            }
-        }).join('\n');
-
-        const prompt = `${systemPrompt}\n\n${conversation}\nAssistant:`;
-
-        return await axios.post(`https://api-inference.huggingface.co/models/${HF_MODEL}`, {
-            inputs: prompt,
-            parameters: {
-                max_new_tokens: 512,
-                temperature: 0.7,
-                return_full_text: false
-            }
+        return await axios.post(`https://router.huggingface.co/v1/chat/completions`, {
+            model: HF_MODEL,
+            messages: [
+                { role: 'system', content: systemPrompt },
+                ...messages
+            ],
+            max_tokens: 512,
+            temperature: 0.7,
+            stream: false
         }, {
             headers: {
                 'Authorization': `Bearer ${HF_TOKEN}`,
@@ -295,8 +298,8 @@ function extractAIContent(response) {
     } else if (AI_PROVIDER === 'grok') {
         return response.data.choices[0].message.content;
     } else if (AI_PROVIDER === 'huggingface') {
-        // Hugging Face Inference API returns an array with generated_text
-        return response.data[0].generated_text;
+        // Hugging Face Chat Completions API (OpenAI-compatible format)
+        return response.data.choices[0].message.content;
     } else {
         return response.data.message.content;
     }
@@ -1218,37 +1221,74 @@ app.post('/api/chat', async (req, res) => {
         const availableTools = toolsResponse.data.data.tools || [];
 
         // Create system prompt with tool awareness
-        const systemPrompt = `You are an AI assistant that helps configure systems using native protocols.
+        const systemPrompt = `You are an EXPERT SYSTEM OPERATOR and NETWORK ENGINEER with deep knowledge of:
+- Linux networking (Open vSwitch, bridges, VLANs, routing, iptables/nftables)
+- Virtualization (Proxmox VE, LXC containers, KVM)
+- Network protocols (OVSDB, OpenFlow, rtnetlink, D-Bus)
+- DevOps practices (infrastructure as code, automation, monitoring)
+- Security (firewalls, VPNs, network isolation)
+
+🖥️ **SYSTEM CONTEXT:**
+You are operating on: proxmox.ghostbridge.tech
+- OS: Debian 13 (Proxmox VE)
+- Kernel: 6.12.48+deb13-amd64
+- CPU: 4 cores | Memory: 15GB
+- Network: Open vSwitch (ovsbr0, mesh bridges)
+- Public IP: 80.209.240.244/25 (Gateway: 80.209.240.129)
+- Uplink: ens1
+- Storage: BTRFS on /var/lib/pve/local-btrfs
+- Containers: LXC with socket networking support
+- Privacy Network: WireGuard, WARP, XRay tunnels available
+
+🎯 **YOUR ROLE:**
+You provide EXPERT-LEVEL advice and execute commands with CONFIDENCE based on your deep understanding of:
+1. System architecture and current configuration
+2. Networking best practices and security implications
+3. Native protocol advantages over CLI tools
+4. Performance optimization and troubleshooting
 
 🔒 **PROTOCOL ENFORCEMENT** 🔒
-For networking and system configuration, prefer native protocols over CLI tools:
-- ❌ Avoid: ovs-vsctl, ip, ifconfig, nmcli, iptables (use native protocols instead)
-- ✅ Use: OVSDB JSON-RPC, rtnetlink, D-Bus, nftables API
-- ✅ Common utilities (grep, ps, systemctl, etc.) are allowed for general tasks
+As an expert, you ALWAYS prefer native protocols over CLI tools:
+- ❌ NEVER use: ovs-vsctl, ip, ifconfig, nmcli, iptables
+- ✅ ALWAYS use: OVSDB JSON-RPC, rtnetlink, D-Bus, nftables API
+- ✅ Standard utilities OK: grep, ps, systemctl, cat, etc.
 
-Available Native Protocol Tools:
+📋 **Available Expert Tools:**
 ${availableTools.map(tool => `- ${tool.name}: ${tool.description}`).join('\n')}
 
-**TOOL CALLING INSTRUCTIONS:**
-When a user asks you to USE, EXECUTE, or RUN a tool, respond with ONLY a JSON object in this format:
+**TOOL CALLING (Expert Mode):**
+To execute operations, respond with JSON tool calls:
 {"tool_call": {"name": "tool_name", "parameters": {...}}}
 
-**TOOL CALL EXAMPLES:**
-- For "discover my system": {"tool_call": {"name": "discover_system", "parameters": {}}}
-- For "list OVS bridges": {"tool_call": {"name": "list_ovs_bridges", "parameters": {}}}
-- For "get bridge info for ovsbr0": {"tool_call": {"name": "get_bridge_info", "parameters": {"bridge_name": "ovsbr0"}}}
-- For "configure bridge": {"tool_call": {"name": "configure_bridge", "parameters": {"bridge_name": "ovsbr0", ...}}}
+**Expert Examples:**
+- "What's my network status?" → {"tool_call": {"name": "network_interfaces", "parameters": {}}}
+- "Show OVS topology" → {"tool_call": {"name": "list_ovs_bridges", "parameters": {}}}
+- "Discover system" → {"tool_call": {"name": "discover_system", "parameters": {}}}
 
-**IMPORTANT:** 
-- When asked to discover/analyze/inspect the system, call discover_system tool
-- When asked about bridges, call list_ovs_bridges or get_bridge_info
-- Respond with ONLY the JSON, no extra text
-- For general questions, respond normally with text
+**AFTER TOOL EXECUTION:**
+You will receive tool results. YOU MUST then provide a natural language response that:
+- Explains what was found/done
+- Interprets the results in context
+- Provides recommendations or next steps
+- Warns about any issues discovered
 
-**ALLOWED PROTOCOLS ONLY:**
-- D-Bus: dbus_introspect, dbus_call, systemd_manage
-- JSON-RPC: json_rpc_call, list_ovs_bridges, get_bridge_info, get_bridge_ports, configure_bridge
-- System Files: read_procfs, read_sysfs, kernel_parameters, device_info`;
+Example: "delete all bridges" → First call list_ovs_bridges, then when you get results:
+- If no bridges: "No OVS bridges found on the system. Nothing to delete."
+- If bridges exist but no delete tool: "Found bridges: ovsbr0, mesh. However, there's no delete_ovs_bridge tool available in the current MCP server."
+
+**CRITICAL RULES:**
+1. ALWAYS respond in natural language after tool execution - NEVER leave user with just JSON
+2. Analyze requests with EXPERT knowledge of the system architecture
+3. Provide DETAILED explanations with security/performance implications
+4. Use native protocols for ALL network/system operations
+5. When uncertain, call discover_system to assess current state
+6. Consider dependencies: services, routing, connectivity, containers
+
+**COMMUNICATION STYLE:**
+- Be concise but thorough
+- Explain technical decisions and trade-offs
+- Warn about potential issues or risks
+- Suggest optimizations when relevant`;
 
         // Call AI with tool awareness using rate limiting
         const response = await rateLimitedApiCall(async () => {
@@ -1368,38 +1408,25 @@ When a user asks you to USE, EXECUTE, or RUN a tool, respond with ONLY a JSON ob
                 `Tool: ${tr.tool}\n${tr.error ? `Error: ${tr.error}` : `Result: ${JSON.stringify(tr.result, null, 2).substring(0, 500)}...`}`
             ).join('\n\n');
 
+            // Use configured AI provider (HuggingFace, etc.) for follow-up analysis
             const followUpResponse = await rateLimitedApiCall(async () => {
-                return await axios.post(`${OLLAMA_BASE_URL}/api/chat`, {
-                    model: OLLAMA_MODEL,
-                    messages: [
-                        {
-                            role: 'system',
-                            content: systemPrompt
-                        },
-                        {
-                            role: 'user',
-                            content: message
-                        },
-                        {
-                            role: 'assistant',
-                            content: `I executed multiple tools and gathered comprehensive data:\n\n${resultsSummary}`
-                        },
-                        {
-                            role: 'user',
-                            content: 'Please analyze all this data and provide a comprehensive system and network analysis with insights and recommendations.'
-                        }
-                    ],
-                    stream: false
-                }, {
-                    headers: {
-                        ...(OLLAMA_USE_CLOUD ? { 'Authorization': `Bearer ${OLLAMA_API_KEY}` } : {}),
-                        'Content-Type': 'application/json'
+                return await callAI([
+                    {
+                        role: 'user',
+                        content: message
                     },
-                    timeout: 180000 // 180 seconds (3 minutes) for comprehensive analysis with large context
-                });
-            }, 'Ollama follow-up analysis');
+                    {
+                        role: 'assistant',
+                        content: `I executed multiple tools and gathered comprehensive data:\n\n${resultsSummary}`
+                    },
+                    {
+                        role: 'user',
+                        content: 'Please analyze all this data and provide a comprehensive system and network analysis with insights and recommendations.'
+                    }
+                ], systemPrompt);
+            }, `${AI_PROVIDER} follow-up analysis`);
 
-            aiResponse = followUpResponse.data.message.content;
+            aiResponse = extractAIContent(followUpResponse);
             toolResult = toolResults;
             console.log(`🤖 AI comprehensive analysis: ${aiResponse.substring(0, 100)}...`);
         }
@@ -1413,7 +1440,7 @@ When a user asks you to USE, EXECUTE, or RUN a tool, respond with ONLY a JSON ob
             success: true,
             message: aiResponse,
             timestamp: Date.now(),
-            model: OLLAMA_MODEL,
+            model: AI_PROVIDER === 'huggingface' ? HF_MODEL : OLLAMA_MODEL,
             tools_used: toolResult ? [toolResult] : []
         });
 
@@ -2475,11 +2502,39 @@ app.get('/api/agents', (req, res) => {
 
 // Model selector endpoints
 app.get('/api/models', (req, res) => {
+    let currentModel, availableModels;
+
+    switch(AI_PROVIDER) {
+        case 'gemini':
+            currentModel = GEMINI_MODEL;
+            availableModels = GEMINI_MODELS;
+            break;
+        case 'huggingface':
+            currentModel = HF_MODEL;
+            availableModels = HF_MODELS;
+            break;
+        case 'grok':
+            currentModel = GROK_MODEL;
+            availableModels = [{ id: GROK_MODEL, name: 'Grok', tier: 'paid', available: true }];
+            break;
+        case 'ollama':
+            currentModel = OLLAMA_MODEL;
+            availableModels = [
+                { id: 'qwen3-vl:235b', name: 'Qwen3-VL 235B', tier: 'free', available: true },
+                { id: 'llama2', name: 'Llama 2', tier: 'free', available: true },
+                { id: 'mistral', name: 'Mistral', tier: 'free', available: true }
+            ];
+            break;
+        default:
+            currentModel = GEMINI_MODEL;
+            availableModels = GEMINI_MODELS;
+    }
+
     res.json({
         success: true,
         provider: AI_PROVIDER,
-        currentModel: GEMINI_MODEL,
-        availableModels: GEMINI_MODELS
+        currentModel: currentModel,
+        availableModels: availableModels
     });
 });
 
@@ -2493,21 +2548,83 @@ app.post('/api/models/select', (req, res) => {
         });
     }
 
-    const model = GEMINI_MODELS.find(m => m.id === modelId);
-    if (!model) {
+    let model, modelFound = false;
+
+    switch(AI_PROVIDER) {
+        case 'gemini':
+            model = GEMINI_MODELS.find(m => m.id === modelId);
+            if (model) {
+                GEMINI_MODEL = modelId;
+                process.env.GEMINI_MODEL = modelId;
+                modelFound = true;
+            }
+            break;
+        case 'huggingface':
+            const hfModel = HF_MODELS.find(m => m.id === modelId);
+            if (hfModel) {
+                HF_MODEL = modelId;
+                process.env.HF_MODEL = modelId;
+                model = hfModel;
+                modelFound = true;
+            }
+            break;
+        case 'grok':
+            GROK_MODEL = modelId;
+            process.env.GROK_MODEL = modelId;
+            model = { id: modelId, name: 'Grok' };
+            modelFound = true;
+            break;
+        case 'ollama':
+            OLLAMA_MODEL = modelId;
+            process.env.OLLAMA_MODEL = modelId;
+            model = { id: modelId, name: modelId };
+            modelFound = true;
+            break;
+    }
+
+    if (!modelFound || !model) {
         return res.status(404).json({
             success: false,
             error: 'Model not found'
         });
     }
 
-    GEMINI_MODEL = modelId;
     console.log(`🔄 Switched to model: ${model.name} (${modelId})`);
 
     res.json({
         success: true,
-        currentModel: GEMINI_MODEL,
+        currentModel: modelId,
         modelName: model.name
+    });
+});
+
+// Switch provider only endpoint
+app.post('/api/provider/select', (req, res) => {
+    const { provider } = req.body;
+
+    if (!provider) {
+        return res.status(400).json({
+            success: false,
+            error: 'Provider is required'
+        });
+    }
+
+    const validProviders = ['gemini', 'huggingface', 'ollama', 'grok'];
+    if (!validProviders.includes(provider)) {
+        return res.status(400).json({
+            success: false,
+            error: 'Invalid provider'
+        });
+    }
+
+    // Update the global provider variable
+    AI_PROVIDER = provider;
+    process.env.AI_PROVIDER = provider;
+    console.log(`🔄 Switched provider to: ${provider}`);
+
+    res.json({
+        success: true,
+        provider: provider
     });
 });
 
@@ -2523,7 +2640,8 @@ app.post('/api/switch-model', (req, res) => {
     }
 
     try {
-        // Update environment variables (these will be used on restart)
+        // Update environment variables and global variable
+        AI_PROVIDER = provider;
         process.env.AI_PROVIDER = provider;
 
         if (provider === 'gemini') {
@@ -2582,20 +2700,80 @@ const wss = new WebSocket.Server({ server });
 
 wss.on('connection', (ws, req) => {
     console.log('🔌 WebSocket client connected');
+    const sessionId = Date.now().toString(36);
 
-    ws.on('message', (message) => {
+    // Send welcome message
+    ws.send(JSON.stringify({
+        type: 'system',
+        content: `Connected to MCP Chat Server\nSession: ${sessionId}\nProvider: ${AI_PROVIDER}\nModel: ${AI_PROVIDER === 'gemini' ? GEMINI_MODEL : AI_PROVIDER === 'huggingface' ? HF_MODEL : OLLAMA_MODEL}`,
+        timestamp: Date.now() / 1000
+    }));
+
+    ws.on('message', async (message) => {
         try {
             const data = JSON.parse(message.toString());
             console.log('📨 WebSocket message:', data);
 
-            // Echo back for now
-            ws.send(JSON.stringify({
-                type: 'echo',
-                data: data,
-                timestamp: Date.now()
-            }));
+            if (data.type === 'chat' && data.message) {
+                const userMessage = data.message.trim();
+
+                // Send typing indicator
+                ws.send(JSON.stringify({
+                    type: 'typing',
+                    timestamp: Date.now() / 1000
+                }));
+
+                // Process chat message through the existing chat API logic
+                try {
+                    const response = await fetch(`http://localhost:${PORT}/api/chat`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message: userMessage })
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        // Send AI response
+                        ws.send(JSON.stringify({
+                            type: 'assistant',
+                            content: result.message || result.response,
+                            timestamp: Date.now() / 1000,
+                            tools_used: result.tools_used
+                        }));
+
+                        // Send tool results if any
+                        if (result.toolResults && result.toolResults.length > 0) {
+                            ws.send(JSON.stringify({
+                                type: 'tools',
+                                tools: result.toolResults,
+                                timestamp: Date.now() / 1000
+                            }));
+                        }
+                    } else {
+                        ws.send(JSON.stringify({
+                            type: 'error',
+                            content: result.error || 'Failed to process message',
+                            timestamp: Date.now() / 1000
+                        }));
+                    }
+                } catch (apiError) {
+                    console.error('Chat API error:', apiError);
+                    ws.send(JSON.stringify({
+                        type: 'error',
+                        content: 'Failed to communicate with chat API',
+                        timestamp: Date.now() / 1000
+                    }));
+                }
+            }
         } catch (error) {
             console.error('WebSocket message error:', error);
+            console.error('Raw message received:', message.toString());
+            ws.send(JSON.stringify({
+                type: 'error',
+                content: 'Invalid message format. Please refresh the page (Ctrl+Shift+R) to clear browser cache.',
+                timestamp: Date.now() / 1000
+            }));
         }
     });
 

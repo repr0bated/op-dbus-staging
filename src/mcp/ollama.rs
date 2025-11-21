@@ -77,7 +77,8 @@ impl Default for OllamaClient {
 impl OllamaClient {
     /// Get the default model name from environment variable or configured value
     pub fn default_model(&self) -> String {
-        self.default_model.clone()
+        self.default_model
+            .clone()
             .or_else(|| std::env::var("OLLAMA_DEFAULT_MODEL").ok())
             .unwrap_or_else(|| "llama2".to_string())
     }
@@ -87,7 +88,6 @@ impl OllamaClient {
         self.default_model = Some(model);
         self
     }
-
 
     /// Create a new Ollama client for local server
     pub fn new() -> Self {
@@ -156,7 +156,8 @@ impl OllamaClient {
 
     /// Check if Ollama server is running
     pub async fn health_check(&self) -> Result<bool> {
-        let response = self.client
+        let response = self
+            .client
             .get(format!("{}/api/version", self.base_url))
             .send()
             .await;
@@ -174,12 +175,12 @@ impl OllamaClient {
             models: Vec<ModelInfo>,
         }
 
-        let mut request_builder = self.client
-            .get(format!("{}/api/tags", self.base_url));
+        let mut request_builder = self.client.get(format!("{}/api/tags", self.base_url));
 
         // Add authentication header for cloud API
         if let Some(ref api_key) = self.api_key {
-            request_builder = request_builder.header("Authorization", format!("Bearer {}", api_key));
+            request_builder =
+                request_builder.header("Authorization", format!("Bearer {}", api_key));
         }
 
         let response = request_builder
@@ -239,19 +240,18 @@ impl OllamaClient {
             options: Some(options),
         };
 
-        let mut request_builder = self.client
+        let mut request_builder = self
+            .client
             .post(format!("{}/api/chat", self.base_url))
             .json(&request);
 
         // Add authentication header for cloud API
         if let Some(ref api_key) = self.api_key {
-            request_builder = request_builder.header("Authorization", format!("Bearer {}", api_key));
+            request_builder =
+                request_builder.header("Authorization", format!("Bearer {}", api_key));
         }
 
-        let response = request_builder
-            .send()
-            .await?
-            .error_for_status()?;
+        let response = request_builder.send().await?.error_for_status()?;
 
         let chat_response: ChatResponse = response.json().await?;
         Ok(chat_response.message.content)
@@ -259,12 +259,10 @@ impl OllamaClient {
 
     /// Simple chat method for single user message
     pub async fn simple_chat(&self, model: &str, user_message: &str) -> Result<String> {
-        let messages = vec![
-            ChatMessage {
-                role: "user".to_string(),
-                content: user_message.to_string(),
-            }
-        ];
+        let messages = vec![ChatMessage {
+            role: "user".to_string(),
+            content: user_message.to_string(),
+        }];
 
         self.chat(model, &messages, Some(0.7), None).await
     }

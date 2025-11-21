@@ -1,0 +1,6 @@
+Starting refactored MCP server with tool registry...
+Registering 0 agent tools
+Loaded 391 embedded resources
+✅ D-Bus introspection cache ready at "/var/cache/dbus-introspection.db"
+Connected to orchestrator on system bus
+MCP server ready. Reading from stdin...

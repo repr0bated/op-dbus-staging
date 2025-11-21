@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use zbus::{interface, Connection, connection::Builder, object_server::SignalEmitter};
+use zbus::{connection::Builder, interface, object_server::SignalEmitter};
 
 /// Orchestrator for managing agents without tight coupling
 pub struct Orchestrator {
@@ -351,7 +351,7 @@ async fn main() -> Result<()> {
         .await;
 
     // Set up D-Bus connection
-    let connection = Builder::session()?
+    let _connection = Builder::system()?
         .name("org.dbusmcp.Orchestrator")?
         .serve_at("/org/dbusmcp/Orchestrator", orchestrator)?
         .build()

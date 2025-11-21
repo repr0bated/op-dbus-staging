@@ -1,4 +1,4 @@
-// Quick test to verify Ollama/DeepSeek connection works
+// Quick test to verify Ollama AI connection works
 // Compile: rustc --edition 2021 test_ollama_connection.rs -L target/debug/deps --extern op_dbus=target/debug/libop_dbus.rlib --extern tokio --extern anyhow
 // Or just: cargo test --lib --features web test_ollama
 
@@ -11,18 +11,18 @@ mod tests {
         let api_key = std::env::var("OLLAMA_API_KEY")
             .expect("OLLAMA_API_KEY must be set");
 
-        let client = OllamaClient::deepseek_cloud(api_key);
+        let client = OllamaClient::deepseek_cloud(api_key); // TODO: Rename method to cloud()
 
-        println!("🧪 Testing DeepSeek connection...");
+        println!("🧪 Testing AI connection...");
 
-        match client.deepseek_chat("Hello! Please respond with just 'OK' if you can read this.").await {
+        match client.deepseek_chat("Hello! Please respond with just 'OK' if you can read this.").await { // TODO: Rename method to chat()
             Ok(response) => {
-                println!("✅ DeepSeek responded: {}", response);
+                println!("✅ AI responded: {}", response);
                 assert!(!response.is_empty(), "Response should not be empty");
             }
             Err(e) => {
-                println!("❌ DeepSeek connection failed: {}", e);
-                panic!("Failed to connect to DeepSeek: {}", e);
+                println!("❌ AI connection failed: {}", e);
+                panic!("Failed to connect to AI: {}", e);
             }
         }
     }

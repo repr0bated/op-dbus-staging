@@ -870,7 +870,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_text_hashing() {
-        let cache = BtrfsCache::new(PathBuf::from("/tmp/test-cache")).await.unwrap();
+        let cache = BtrfsCache::new(PathBuf::from("/tmp/test-cache"))
+            .await
+            .unwrap();
         let hash1 = cache.hash_text("test");
         let hash2 = cache.hash_text("test");
         let hash3 = cache.hash_text("different");

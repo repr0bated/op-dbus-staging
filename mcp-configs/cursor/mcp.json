@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "operation-dbus": {
-      "command": "node",
-      "args": ["/git/operation-dbus/mcp-server-stdio.js"],
+      "command": "dbus-mcp",
+      "args": [],
       "env": {},
       "disabled": false
     },

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DeepSeek Chat Interface</title>
+    <title>MCP AI Chat Interface</title>
     <style>
         * {
             margin: 0;
@@ -190,34 +190,34 @@
 <body>
     <div class="chat-container">
         <div class="chat-header">
-            <h1>🤖 DeepSeek Chat</h1>
+            <h1>🤖 MCP AI Chat</h1>
             <p>Powered by Ollama Cloud - Always Available</p>
         </div>
 
         <div class="chat-messages" id="chatMessages">
             <div class="message assistant">
-                <strong>DeepSeek:</strong> Hello! I'm ready to help you with any questions or tasks. What would you like to explore today?
+                <strong>AI:</strong> Hello! I'm ready to help you with any questions or tasks. What would you like to explore today?
             </div>
         </div>
 
         <div class="typing" id="typingIndicator">
-            DeepSeek is typing...
+            AI is typing...
         </div>
 
         <div class="status connected" id="connectionStatus">
-            ✅ Connected to DeepSeek AI
+            ✅ Connected to AI Service
         </div>
 
         <div class="chat-input-area">
             <div class="input-group">
-                <input type="text" id="messageInput" placeholder="Ask DeepSeek anything..." maxlength="1000">
+                <input type="text" id="messageInput" placeholder="Ask AI anything..." maxlength="1000">
                 <button id="sendButton">Send</button>
             </div>
         </div>
     </div>
 
     <script>
-        class DeepSeekChat {
+        class MCPChat {
             constructor() {
                 this.messagesContainer = document.getElementById('chatMessages');
                 this.messageInput = document.getElementById('messageInput');
@@ -285,7 +285,7 @@
                 if (type === 'user') {
                     prefix = '<strong>You:</strong> ';
                 } else if (type === 'assistant') {
-                    prefix = '<strong>DeepSeek:</strong> ';
+                    prefix = '<strong>AI:</strong> ';
                 }
 
                 messageDiv.innerHTML = prefix + this.formatMessage(content);
@@ -318,7 +318,7 @@
 
         // Initialize chat when page loads
         document.addEventListener('DOMContentLoaded', () => {
-            new DeepSeekChat();
+            new MCPChat();
         });
     </script>
 </body>

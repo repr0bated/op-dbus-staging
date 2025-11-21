@@ -15,6 +15,7 @@ class MCPChat {
         this.initWebSocket();
         this.initEventListeners();
         this.loadTheme();
+        this.loadModels();
     }
     
     initElements() {
@@ -37,7 +38,9 @@ class MCPChat {
             modalClose: document.getElementById('modalClose'),
             modalCancel: document.getElementById('modalCancel'),
             modalExecute: document.getElementById('modalExecute'),
-            templateForm: document.getElementById('templateForm')
+            templateForm: document.getElementById('templateForm'),
+            providerSelect: document.getElementById('providerSelect'),
+            modelSelect: document.getElementById('modelSelect')
         };
     }
     
@@ -260,19 +263,32 @@ class MCPChat {
     
     sendMessage() {
         const message = this.elements.chatInput.value.trim();
-        
+
         if (!message) return;
-        
+
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            this.ws.send(message);
+            // Send as JSON
+            this.ws.send(JSON.stringify({
+                type: 'chat',
+                message: message,
+                timestamp: Date.now()
+            }));
+
             this.commandHistory.push(message);
             this.historyIndex = -1;
-            
+
             // Keep history limited to 100 items
             if (this.commandHistory.length > 100) {
                 this.commandHistory.shift();
             }
-            
+
+            // Add user message to UI
+            this.addMessage({
+                type: 'user',
+                content: message,
+                timestamp: Date.now() / 1000
+            });
+
             this.elements.chatInput.value = '';
             this.elements.chatInput.style.height = 'auto';
             this.hideSuggestions();
@@ -532,12 +548,141 @@ class MCPChat {
         this.closeModal();
     }
     
+    async loadModels() {
+        try {
+            const response = await fetch('/api/models');
+            if (response.ok) {
+                const data = await response.json();
+                this.populateProviderDropdown(data.provider);
+                this.populateModelDropdown(data);
+            } else {
+                console.error('Failed to load models:', response.statusText);
+            }
+        } catch (error) {
+            console.error('Error loading models:', error);
+        }
+    }
+
+    populateProviderDropdown(currentProvider) {
+        const providers = [
+            { id: 'ollama', name: 'Ollama Cloud' },
+            { id: 'huggingface', name: 'HuggingFace' },
+            { id: 'gemini', name: 'Google Gemini' },
+            { id: 'grok', name: 'Grok (xAI)' }
+        ];
+
+        const select = this.elements.providerSelect;
+        select.innerHTML = '';
+
+        providers.forEach(provider => {
+            const option = document.createElement('option');
+            option.value = provider.id;
+            option.textContent = provider.name;
+            option.selected = provider.id === currentProvider;
+            select.appendChild(option);
+        });
+
+        // Add change listener
+        select.addEventListener('change', (e) => this.handleProviderChange(e.target.value));
+    }
+
+    populateModelDropdown(data) {
+        const { provider, currentModel, availableModels } = data;
+        const select = this.elements.modelSelect;
+
+        // Clear existing options
+        select.innerHTML = '';
+
+        availableModels.forEach(model => {
+            const option = document.createElement('option');
+            option.value = model.id;
+            option.textContent = model.name;
+            option.selected = model.id === currentModel;
+            select.appendChild(option);
+        });
+
+        // Add change listener (remove old listeners first)
+        const newSelect = select.cloneNode(true);
+        select.parentNode.replaceChild(newSelect, select);
+        this.elements.modelSelect = newSelect;
+        newSelect.addEventListener('change', (e) => this.handleModelChange(e.target.value));
+    }
+
+    async handleProviderChange(provider) {
+        try {
+            const response = await fetch('/api/provider/select', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ provider })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                console.log(`Switched to provider: ${provider}`);
+
+                // Reload models for new provider
+                await this.loadModels();
+
+                // Show notification
+                this.addMessage({
+                    type: 'system',
+                    content: `Provider switched to: ${provider.toUpperCase()}`
+                });
+            } else {
+                console.error('Failed to switch provider:', response.statusText);
+                this.addMessage({
+                    type: 'error',
+                    content: 'Failed to switch provider'
+                });
+            }
+        } catch (error) {
+            console.error('Error switching provider:', error);
+            this.addMessage({
+                type: 'error',
+                content: 'Error switching provider'
+            });
+        }
+    }
+
+    async handleModelChange(modelId) {
+        try {
+            const response = await fetch('/api/models/select', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ modelId })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                console.log(`Switched to model: ${data.modelName}`);
+
+                // Show notification
+                this.addMessage({
+                    type: 'system',
+                    content: `Model switched to: ${data.modelName}`
+                });
+            } else {
+                console.error('Failed to switch model:', response.statusText);
+                this.addMessage({
+                    type: 'error',
+                    content: 'Failed to switch model'
+                });
+            }
+        } catch (error) {
+            console.error('Error switching model:', error);
+            this.addMessage({
+                type: 'error',
+                content: 'Error switching model'
+            });
+        }
+    }
+
     toggleTheme() {
         const isLight = document.body.classList.toggle('light-theme');
         this.elements.themeToggle.textContent = isLight ? '☀️' : '🌙';
         localStorage.setItem('theme', isLight ? 'light' : 'dark');
     }
-    
+
     loadTheme() {
         const theme = localStorage.getItem('theme') || 'dark';
         if (theme === 'light') {

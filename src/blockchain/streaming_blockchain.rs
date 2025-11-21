@@ -42,10 +42,10 @@ pub enum SnapshotInterval {
 /// Snapshot retention policy with rolling windows
 #[derive(Debug, Clone, Copy)]
 pub struct RetentionPolicy {
-    pub hourly: usize,     // Keep last N hourly snapshots
-    pub daily: usize,      // Keep last N daily snapshots
-    pub weekly: usize,     // Keep last N weekly snapshots
-    pub quarterly: usize,  // Keep last N quarterly snapshots
+    pub hourly: usize,    // Keep last N hourly snapshots
+    pub daily: usize,     // Keep last N daily snapshots
+    pub weekly: usize,    // Keep last N weekly snapshots
+    pub quarterly: usize, // Keep last N quarterly snapshots
 }
 
 impl Default for RetentionPolicy {
@@ -95,22 +95,10 @@ impl RetentionPolicy {
     /// Load from JSON value (for config files)
     pub fn from_json(value: &serde_json::Value) -> Result<Self> {
         Ok(Self {
-            hourly: value
-                .get("hourly")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(5) as usize,
-            daily: value
-                .get("daily")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(5) as usize,
-            weekly: value
-                .get("weekly")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(5) as usize,
-            quarterly: value
-                .get("quarterly")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(5) as usize,
+            hourly: value.get("hourly").and_then(|v| v.as_u64()).unwrap_or(5) as usize,
+            daily: value.get("daily").and_then(|v| v.as_u64()).unwrap_or(5) as usize,
+            weekly: value.get("weekly").and_then(|v| v.as_u64()).unwrap_or(5) as usize,
+            quarterly: value.get("quarterly").and_then(|v| v.as_u64()).unwrap_or(5) as usize,
         })
     }
 
@@ -167,9 +155,9 @@ impl Default for SnapshotInterval {
 
 pub struct StreamingBlockchain {
     base_path: PathBuf,
-    timing_subvol: PathBuf,     // Audit trail (immutable history)
-    vector_subvol: PathBuf,     // ML embeddings
-    state_subvol: PathBuf,      // Current system state (for DR/reinstall)
+    timing_subvol: PathBuf, // Audit trail (immutable history)
+    vector_subvol: PathBuf, // ML embeddings
+    state_subvol: PathBuf,  // Current system state (for DR/reinstall)
     snapshot_interval: SnapshotInterval,
     retention_policy: RetentionPolicy,
     last_snapshot_time: Arc<RwLock<Instant>>,
@@ -308,7 +296,11 @@ impl StreamingBlockchain {
     }
 
     /// Update per-plugin state (optional, for granular DR)
-    pub async fn update_plugin_state(&self, plugin_name: &str, state: &serde_json::Value) -> Result<()> {
+    pub async fn update_plugin_state(
+        &self,
+        plugin_name: &str,
+        state: &serde_json::Value,
+    ) -> Result<()> {
         let plugins_dir = self.state_subvol.join("plugins");
         tokio::fs::create_dir_all(&plugins_dir).await?;
 
@@ -670,7 +662,8 @@ impl StreamingBlockchain {
         }
 
         // Apply retention limits
-        let mut keep_snapshots: std::collections::HashSet<String> = std::collections::HashSet::new();
+        let mut keep_snapshots: std::collections::HashSet<String> =
+            std::collections::HashSet::new();
 
         // Keep last N hourly snapshots
         for snapshot in hourly.iter().take(self.retention_policy.hourly) {
@@ -697,7 +690,10 @@ impl StreamingBlockchain {
         let mut quarterly_snapshots: Vec<_> = quarterly.into_values().collect();
         quarterly_snapshots.sort();
         quarterly_snapshots.reverse();
-        for snapshot in quarterly_snapshots.iter().take(self.retention_policy.quarterly) {
+        for snapshot in quarterly_snapshots
+            .iter()
+            .take(self.retention_policy.quarterly)
+        {
             keep_snapshots.insert(snapshot.clone());
         }
 

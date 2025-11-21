@@ -5,9 +5,10 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
+use std::process::Stdio;
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
+use tokio::process::{Child, ChildStdin, ChildStdout, Command};
 use tokio::sync::RwLock;
 
 /// Configuration for a hosted MCP server
@@ -83,12 +84,17 @@ impl HostedMcpServer {
         cmd.stdout(Stdio::piped());
         cmd.stderr(Stdio::piped());
 
-        let mut child = cmd.spawn()
+        let mut child = cmd
+            .spawn()
             .context(format!("Failed to spawn MCP server: {}", config.command))?;
 
-        let stdin = child.stdin.take()
+        let stdin = child
+            .stdin
+            .take()
             .ok_or_else(|| anyhow::anyhow!("Failed to get stdin"))?;
-        let stdout = child.stdout.take()
+        let stdout = child
+            .stdout
+            .take()
             .ok_or_else(|| anyhow::anyhow!("Failed to get stdout"))?;
 
         self.process = Some(child);
@@ -128,7 +134,8 @@ impl HostedMcpServer {
         }
 
         // Update request ID in JSON
-        let request_obj = request.as_object()
+        let request_obj = request
+            .as_object()
             .ok_or_else(|| anyhow::anyhow!("Request must be an object"))?
             .clone();
         let mut request_obj = request_obj;
@@ -143,10 +150,9 @@ impl HostedMcpServer {
         }
 
         // Read response
-        let response = tokio::time::timeout(
-            std::time::Duration::from_secs(10),
-            self.read_response()
-        ).await??;
+        let response =
+            tokio::time::timeout(std::time::Duration::from_secs(10), self.read_response())
+                .await??;
 
         {
             let mut pending = self.pending_requests.lock().await;
@@ -182,12 +188,11 @@ impl HostedMcpServer {
                     .iter()
                     .map(|tool| {
                         Ok(McpToolInfo {
-                            name: tool["name"].as_str()
+                            name: tool["name"]
+                                .as_str()
                                 .ok_or_else(|| anyhow::anyhow!("Missing tool name"))?
                                 .to_string(),
-                            description: tool["description"].as_str()
-                                .unwrap_or("")
-                                .to_string(),
+                            description: tool["description"].as_str().unwrap_or("").to_string(),
                             input_schema: tool["inputSchema"].clone(),
                             server_name: self.name.clone(),
                         })
@@ -222,12 +227,12 @@ impl McpClient {
     pub async fn load_configs_from_file(&self, path: &str) -> Result<()> {
         let content = std::fs::read_to_string(path)
             .context(format!("Failed to read config file: {}", path))?;
-        
+
         let config: Value = serde_json::from_str(&content)?;
-        
+
         if let Some(servers) = config.get("mcpServers").and_then(|s| s.as_object()) {
             let mut configs = self.configs.write().await;
-            
+
             for (name, server_config) in servers {
                 if let Some(disabled) = server_config.get("disabled").and_then(|d| d.as_bool()) {
                     if disabled {
@@ -247,13 +252,12 @@ impl McpClient {
                         .iter()
                         .filter_map(|v| v.as_str().map(|s| s.to_string()))
                         .collect(),
-                    env: server_config.get("env")
+                    env: server_config
+                        .get("env")
                         .and_then(|e| e.as_object())
                         .map(|obj| {
                             obj.iter()
-                                .filter_map(|(k, v)| {
-                                    v.as_str().map(|s| (k.clone(), s.to_string()))
-                                })
+                                .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
                                 .collect()
                         })
                         .unwrap_or_default(),
@@ -275,12 +279,12 @@ impl McpClient {
 
         for (name, config) in configs {
             let mut server = HostedMcpServer::new(name.clone());
-            
+
             match server.connect(&config).await {
                 Ok(_) => {
                     // Get server info and tools
                     let tools = server.list_tools().await.unwrap_or_default();
-                    
+
                     servers_info.push(HostedMcpInfo {
                         name: name.clone(),
                         status: McpServerStatus::Connected,
@@ -321,7 +325,7 @@ impl McpClient {
         arguments: Value,
     ) -> Result<Value> {
         let mut servers = self.servers.write().await;
-        
+
         if let Some(server) = servers.get_mut(server_name) {
             let request = json!({
                 "jsonrpc": "2.0",
@@ -370,17 +374,20 @@ impl McpClient {
                 .context(format!("Failed to create directory for {}", client_name))?;
 
             let config_path = client_dir.join("mcp.json");
-            
+
             // Build config with all discovered servers as individual entries
             let mut mcp_servers = serde_json::Map::new();
-            
+
             // Add the main op-dbus server
-            mcp_servers.insert("operation-dbus".to_string(), json!({
-                "command": "target/release/op-dbus",
-                "args": ["mcp"],
-                "env": {},
-                "disabled": false
-            }));
+            mcp_servers.insert(
+                "operation-dbus".to_string(),
+                json!({
+                    "command": "target/release/op-dbus",
+                    "args": ["mcp"],
+                    "env": {},
+                    "disabled": false
+                }),
+            );
 
             // Add each discovered hosted MCP server individually
             for server_info in discovered_servers {
@@ -412,7 +419,11 @@ impl McpClient {
             fs::write(&config_path, json_str)
                 .context(format!("Failed to write config for {}", client_name))?;
 
-            eprintln!("✓ Generated {} config: {}", client_name, config_path.display());
+            eprintln!(
+                "✓ Generated {} config: {}",
+                client_name,
+                config_path.display()
+            );
         }
 
         Ok(())
@@ -429,14 +440,15 @@ impl McpClient {
         use std::path::PathBuf;
 
         let tools_dir = PathBuf::from(base_dir).join("tools");
-        fs::create_dir_all(&tools_dir)
-            .context("Failed to create tools directory")?;
+        fs::create_dir_all(&tools_dir).context("Failed to create tools directory")?;
 
         for server_info in discovered_servers {
             if server_info.status == McpServerStatus::Connected && !server_info.tools.is_empty() {
                 let server_tools_dir = tools_dir.join(&server_info.name);
-                fs::create_dir_all(&server_tools_dir)
-                    .context(format!("Failed to create tools dir for {}", server_info.name))?;
+                fs::create_dir_all(&server_tools_dir).context(format!(
+                    "Failed to create tools dir for {}",
+                    server_info.name
+                ))?;
 
                 // Write a config file for each tool
                 for tool in &server_info.tools {
@@ -460,7 +472,11 @@ impl McpClient {
                         .context(format!("Failed to write tool config: {}", tool.name))?;
                 }
 
-                eprintln!("✓ Wrote {} tools from {}", server_info.tools.len(), server_info.name);
+                eprintln!(
+                    "✓ Wrote {} tools from {}",
+                    server_info.tools.len(),
+                    server_info.name
+                );
             }
         }
 
@@ -497,4 +513,3 @@ impl Default for McpClient {
         Self::new()
     }
 }
-

@@ -1423,3 +1423,88 @@ function renderWorkflow() {
         canvas.appendChild(nodeElement);
     });
 }
+
+// Model Selection Functions
+async function loadModels() {
+    try {
+        const response = await fetch('/api/models');
+        if (response.ok) {
+            const data = await response.json();
+            populateModelDropdown(data);
+        } else {
+            console.error('Failed to load models:', response.statusText);
+        }
+    } catch (error) {
+        console.error('Error loading models:', error);
+    }
+}
+
+function populateModelDropdown(data) {
+    const { provider, currentModel, availableModels } = data;
+    const select = document.getElementById('modelSelect');
+
+    if (!select) return;
+
+    // Clear existing options
+    select.innerHTML = '';
+
+    // Add provider label
+    const providerLabel = document.createElement('option');
+    providerLabel.disabled = true;
+    providerLabel.textContent = `--- ${provider.toUpperCase()} Models ---`;
+    select.appendChild(providerLabel);
+
+    // Add models
+    availableModels.forEach(model => {
+        const option = document.createElement('option');
+        option.value = model.id;
+        option.textContent = model.name;
+        option.selected = model.id === currentModel;
+        select.appendChild(option);
+    });
+
+    // Add change listener
+    select.addEventListener('change', (e) => handleModelChange(e.target.value));
+}
+
+async function handleModelChange(modelId) {
+    try {
+        const response = await fetch('/api/models/select', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ modelId })
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            console.log(`Switched to model: ${data.modelName}`);
+
+            // Show notification in chat
+            const chatMessages = document.getElementById('chat-messages');
+            if (chatMessages) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'chat-message system';
+                messageDiv.innerHTML = `
+                    <div class="message-content">
+                        <div class="message-text" style="color: var(--accent-blue); font-style: italic;">
+                            Model switched to: ${data.modelName}
+                        </div>
+                    </div>
+                `;
+                chatMessages.appendChild(messageDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+        } else {
+            console.error('Failed to switch model:', response.statusText);
+        }
+    } catch (error) {
+        console.error('Error switching model:', error);
+    }
+}
+
+// Load models when page loads
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', loadModels);
+} else {
+    loadModels();
+}

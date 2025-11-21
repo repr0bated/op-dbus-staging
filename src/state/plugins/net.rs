@@ -1,5 +1,6 @@
 // Net state plugin - authoritative OVS state management via D-Bus
 // Handles: interfaces, bridges, IPs, basic connectivity via plugin schema
+// Integrates with systemd-networkd as subordinate service for L3 configuration
 use crate::blockchain::PluginFootprint;
 
 // Use D-Bus introspection instead of CLI commands
@@ -49,7 +50,7 @@ pub struct TunableConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ports: Option<Vec<String>>,
 
-    /// L3 driver for IP configuration (e.g., "rtnetlink", "networkmanager")
+    /// L3 driver for IP configuration (e.g., "rtnetlink", "ovs-rpc", "systemd-networkd")
     #[serde(skip_serializing_if = "Option::is_none")]
     pub l3_driver: Option<String>,
 
@@ -317,7 +318,7 @@ impl NetStatePlugin {
                 tunable: TunableConfig {
                     ports,
                     l3_driver: None, // Bridges typically don't need L3 config
-                    ipv4: None, // OVS bridges don't have IP config directly
+                    ipv4: None,      // OVS bridges don't have IP config directly
                     ipv6: None,
                     controller: None,
                     properties: Some(bridge_info),
@@ -495,8 +496,11 @@ impl NetStatePlugin {
                     // Configure gateway if specified
                     if let Some(ref gateway) = ipv4.gateway {
                         let _ = crate::native::rtnetlink_helpers::del_default_route().await;
-                        match crate::native::rtnetlink_helpers::add_default_route(&config.name, gateway)
-                            .await
+                        match crate::native::rtnetlink_helpers::add_default_route(
+                            &config.name,
+                            gateway,
+                        )
+                        .await
                         {
                             Ok(_) => {
                                 log::info!("Added default route via {} via rtnetlink", gateway);

@@ -8,12 +8,10 @@
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
-use std::fs;
 use tokio::fs as async_fs;
 use tokio::process::Command;
-use sha2::{Digest, Sha256};
 
 /// Deployment image metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -23,7 +21,7 @@ pub struct ImageMetadata {
     pub created: i64,
     pub files: Vec<FileEntry>,
     pub total_size: u64,
-    pub unique_size: u64, // Size of files unique to this image
+    pub unique_size: u64,    // Size of files unique to this image
     pub symlinked_size: u64, // Size of files symlinked from previous images
 }
 
@@ -88,7 +86,7 @@ impl ImageManager {
     }
 
     /// Create a new deployment image
-    /// 
+    ///
     /// # Arguments
     /// * `image_name` - Name of the image (e.g., "PROXMOX-DBUS_STAGE")
     /// * `files` - List of files to add to the image
@@ -126,29 +124,28 @@ impl ImageManager {
             let dest_path = image_path.join(file_name);
 
             // Check if this file exists in any previous image
-            if let Some(previous_file) = self.find_file_in_previous_images(
-                file_name,
-                &existing_images,
-            ).await? {
+            if let Some(previous_file) = self
+                .find_file_in_previous_images(file_name, &existing_images)
+                .await?
+            {
                 // File exists in previous image - create symlink
                 log::debug!("Symlinking {} from previous image", file_name);
-                
+
                 // Calculate relative path from dest to source
-                let relative_target = self.calculate_relative_path(
-                    dest_path.parent().unwrap(),
-                    &previous_file,
-                )?;
-                
+                let relative_target =
+                    self.calculate_relative_path(dest_path.parent().unwrap(), &previous_file)?;
+
                 #[cfg(unix)]
                 {
                     std::os::unix::fs::symlink(&relative_target, &dest_path)
                         .context(format!("Failed to create symlink: {}", dest_path.display()))?;
                 }
-                
+
                 #[cfg(not(unix))]
                 {
                     // On non-Unix, just copy the file
-                    async_fs::copy(&previous_file, &dest_path).await
+                    async_fs::copy(&previous_file, &dest_path)
+                        .await
                         .context(format!("Failed to copy file: {}", dest_path.display()))?;
                 }
 
@@ -166,8 +163,9 @@ impl ImageManager {
             } else {
                 // New file - copy it
                 log::debug!("Copying new file: {}", file_name);
-                
-                async_fs::copy(&file_path, &dest_path).await
+
+                async_fs::copy(&file_path, &dest_path)
+                    .await
                     .context(format!("Failed to copy file: {}", file_path.display()))?;
 
                 // Calculate hash for deduplication
@@ -212,10 +210,10 @@ impl ImageManager {
     fn calculate_relative_path(&self, base: &Path, target: &Path) -> Result<PathBuf> {
         // Use pathdiff crate's diff_paths if available, otherwise manual calculation
         // For now, use manual calculation that works with non-canonicalized paths
-        
+
         let base_components: Vec<_> = base.components().collect();
         let target_components: Vec<_> = target.components().collect();
-        
+
         // Find common prefix length
         let mut common_len = 0;
         let min_len = base_components.len().min(target_components.len());
@@ -226,20 +224,20 @@ impl ImageManager {
                 break;
             }
         }
-        
+
         // Build relative path: go up from base, then down to target
         let mut relative = PathBuf::new();
-        
+
         // Add ".." for each component in base beyond common prefix
         for _ in common_len..base_components.len() {
             relative.push("..");
         }
-        
+
         // Add remaining components from target
         for comp in target_components.iter().skip(common_len) {
             relative.push(comp);
         }
-        
+
         Ok(relative)
     }
 
@@ -253,7 +251,7 @@ impl ImageManager {
         // Search from most recent to oldest
         for image in existing_images.iter().rev() {
             let file_path = image.path.join(file_name);
-            
+
             // Check if file exists (following symlinks)
             if async_fs::metadata(&file_path).await.is_ok() {
                 // Check if it's a symlink
@@ -266,7 +264,7 @@ impl ImageManager {
                     } else {
                         file_path.parent().unwrap().join(&target)
                     };
-                    
+
                     // Check if the resolved path exists and is a real file
                     if async_fs::metadata(&resolved).await.is_ok() {
                         let resolved_meta = async_fs::symlink_metadata(&resolved).await?;
@@ -282,7 +280,6 @@ impl ImageManager {
         }
         Ok(None)
     }
-
 
     /// Calculate SHA256 hash of a file
     async fn calculate_file_hash(&self, file_path: &Path) -> Result<String> {
@@ -373,14 +370,15 @@ impl ImageManager {
         while let Some(entry) = entries.next_entry().await? {
             let path = entry.path();
             let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-            
+
             if name.starts_with(snapshot_prefix) {
                 if let Ok(metadata) = entry.metadata().await {
                     if let Ok(created) = metadata.created() {
-                        let timestamp = created.duration_since(std::time::UNIX_EPOCH)
+                        let timestamp = created
+                            .duration_since(std::time::UNIX_EPOCH)
                             .unwrap()
                             .as_secs() as i64;
-                        
+
                         if timestamp > latest_time {
                             latest_time = timestamp;
                             latest_snapshot = Some(path);
@@ -403,7 +401,7 @@ impl ImageManager {
             while let Some(entry) = entries.next_entry().await? {
                 let path = entry.path();
                 let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-                
+
                 if name.starts_with(image_name) {
                     if self.is_btrfs(&path).await? {
                         let output = Command::new("btrfs")
@@ -411,7 +409,7 @@ impl ImageManager {
                             .arg(&path)
                             .output()
                             .await?;
-                        
+
                         if !output.status.success() {
                             log::warn!("Failed to delete snapshot: {}", path.display());
                         }
@@ -430,7 +428,7 @@ impl ImageManager {
                     .arg(&image_path)
                     .output()
                     .await?;
-                
+
                 if !output.status.success() {
                     let stderr = String::from_utf8_lossy(&output.stderr);
                     anyhow::bail!("Failed to delete image subvolume: {}", stderr);
@@ -455,9 +453,8 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let manager = ImageManager::new(temp_dir.path());
         manager.init().await.unwrap();
-        
+
         assert!(temp_dir.path().join("images").exists());
         assert!(temp_dir.path().join("snapshots").exists());
     }
 }
-

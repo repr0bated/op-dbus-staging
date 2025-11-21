@@ -1,10 +1,12 @@
 use serde::Deserialize;
 use std::process::Command;
 use uuid::Uuid;
-use zbus::{interface, connection::Builder, object_server::SignalEmitter};
+use zbus::{connection::Builder, interface, object_server::SignalEmitter};
 
 // Security configuration
-const FORBIDDEN_CHARS: &[char] = &['$', '`', ';', '&', '|', '>', '<', '(', ')', '{', '}', '\n', '\r', ' '];
+const FORBIDDEN_CHARS: &[char] = &[
+    '$', '`', ';', '&', '|', '>', '<', '(', ')', '{', '}', '\n', '\r', ' ',
+];
 const MAX_SERVICE_LENGTH: usize = 256;
 
 #[derive(Debug, Deserialize)]
@@ -118,7 +120,8 @@ impl SystemdAgent {
 
     /// Signal emitted when task completes
     #[zbus(signal)]
-    async fn task_completed(signal_emitter: &SignalEmitter<'_>, result: String) -> zbus::Result<()>;
+    async fn task_completed(signal_emitter: &SignalEmitter<'_>, result: String)
+        -> zbus::Result<()>;
 }
 
 #[tokio::main]
@@ -128,10 +131,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let agent_id = if args.len() > 1 {
         args[1].clone()
     } else {
-        format!(
-            "systemd-{}",
-            Uuid::new_v4().to_string()[..8].to_string()
-        )
+        format!("systemd-{}", Uuid::new_v4().to_string()[..8].to_string())
     };
 
     println!("Starting Systemd Agent: {}", agent_id);

@@ -153,7 +153,7 @@ class MCPServer {
 
     start() {
         console.error('[MCP] operation-dbus MCP server starting');
-        console.error('[MCP] Protocol: stdio (for Cursor/Claude/DeepSeek)');
+        console.error('[MCP] Protocol: stdio (for Cursor/Claude/AI Editors)');
 
         // Handle stdin data directly for better MCP compatibility
         let buffer = '';

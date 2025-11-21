@@ -42,7 +42,8 @@ impl ProcessState for PluginWorkflowState {
             PluginWorkflowState::WaitingForInput => "waiting_for_input",
             PluginWorkflowState::Skipped => "skipped",
             PluginWorkflowState::NeedsIntervention => "needs_intervention",
-        }.to_string()
+        }
+        .to_string()
     }
 }
 
@@ -114,11 +115,18 @@ impl Node for WorkflowPluginNode {
     type State = PluginWorkflowState;
 
     async fn prepare(&self, context: &mut Context) -> Result<()> {
-        log::info!("🔧 Preparing plugin '{}' for workflow execution", self.plugin.name());
+        log::info!(
+            "🔧 Preparing plugin '{}' for workflow execution",
+            self.plugin.name()
+        );
 
         // Extract inputs from context and prepare plugin
         let inputs = self.extract_inputs(context)?;
-        log::debug!("📥 Plugin '{}' received inputs: {:?}", self.plugin.name(), inputs);
+        log::debug!(
+            "📥 Plugin '{}' received inputs: {:?}",
+            self.plugin.name(),
+            inputs
+        );
 
         Ok(())
     }
@@ -128,29 +136,44 @@ impl Node for WorkflowPluginNode {
 
         // Check if plugin is available
         if !self.plugin.is_available() {
-            log::warn!("⚠️  Plugin '{}' is not available: {}",
-                      self.plugin.name(),
-                      self.plugin.unavailable_reason());
+            log::warn!(
+                "⚠️  Plugin '{}' is not available: {}",
+                self.plugin.name(),
+                self.plugin.unavailable_reason()
+            );
             return Ok(Value::String("skipped".to_string()));
         }
 
         // Query current state
         let current_state = self.plugin.query_current_state().await?;
-        log::debug!("📊 Plugin '{}' current state: {:?}", self.plugin.name(), current_state);
+        log::debug!(
+            "📊 Plugin '{}' current state: {:?}",
+            self.plugin.name(),
+            current_state
+        );
 
         // For workflow execution, we assume the "desired" state comes from inputs
         // In a real implementation, this would be more sophisticated
-        let desired_state = context.get("desired_state")
-            .cloned()
-            .unwrap_or(Value::Null);
+        let desired_state = context.get("desired_state").cloned().unwrap_or(Value::Null);
 
         // Calculate diff
-        let diff = self.plugin.calculate_diff(&current_state, &desired_state).await?;
-        log::debug!("🔍 Plugin '{}' calculated diff: {:?}", self.plugin.name(), diff);
+        let diff = self
+            .plugin
+            .calculate_diff(&current_state, &desired_state)
+            .await?;
+        log::debug!(
+            "🔍 Plugin '{}' calculated diff: {:?}",
+            self.plugin.name(),
+            diff
+        );
 
         // Apply changes if needed
         if !diff.actions.is_empty() {
-            log::info!("🔄 Plugin '{}' applying {} changes", self.plugin.name(), diff.actions.len());
+            log::info!(
+                "🔄 Plugin '{}' applying {} changes",
+                self.plugin.name(),
+                diff.actions.len()
+            );
             let result = self.plugin.apply_state(&diff).await?;
 
             match result.success {
@@ -159,7 +182,11 @@ impl Node for WorkflowPluginNode {
                     Ok(Value::String("completed".to_string()))
                 }
                 false => {
-                    log::error!("❌ Plugin '{}' failed: {:?}", self.plugin.name(), result.errors);
+                    log::error!(
+                        "❌ Plugin '{}' failed: {:?}",
+                        self.plugin.name(),
+                        result.errors
+                    );
                     Ok(Value::String("failed".to_string()))
                 }
             }
@@ -169,7 +196,11 @@ impl Node for WorkflowPluginNode {
         }
     }
 
-    async fn post_process(&self, context: &mut Context, result: &Result<Value>) -> Result<ProcessResult<PluginWorkflowState>> {
+    async fn post_process(
+        &self,
+        context: &mut Context,
+        result: &Result<Value>,
+    ) -> Result<ProcessResult<PluginWorkflowState>> {
         match result {
             Ok(value) => {
                 if let Some(status) = value.as_str() {
@@ -182,8 +213,14 @@ impl Node for WorkflowPluginNode {
                                 "timestamp": chrono::Utc::now().timestamp()
                             });
                             self.store_outputs(context, &execution_result)?;
-                            log::info!("📤 Plugin '{}' stored results in workflow context", self.plugin.name());
-                            Ok(ProcessResult::new(PluginWorkflowState::Completed, "Plugin completed successfully".to_string()))
+                            log::info!(
+                                "📤 Plugin '{}' stored results in workflow context",
+                                self.plugin.name()
+                            );
+                            Ok(ProcessResult::new(
+                                PluginWorkflowState::Completed,
+                                "Plugin completed successfully".to_string(),
+                            ))
                         }
                         "failed" => {
                             // Store failure information
@@ -193,20 +230,42 @@ impl Node for WorkflowPluginNode {
                                 "timestamp": chrono::Utc::now().timestamp()
                             });
                             context.set("last_error", failure_result);
-                            log::error!("💥 Plugin '{}' workflow execution failed", self.plugin.name());
-                            Ok(ProcessResult::new(PluginWorkflowState::Failed, "Plugin execution failed".to_string()))
+                            log::error!(
+                                "💥 Plugin '{}' workflow execution failed",
+                                self.plugin.name()
+                            );
+                            Ok(ProcessResult::new(
+                                PluginWorkflowState::Failed,
+                                "Plugin execution failed".to_string(),
+                            ))
                         }
                         "skipped" => {
-                            log::info!("⏭️  Plugin '{}' was skipped in workflow", self.plugin.name());
-                            Ok(ProcessResult::new(PluginWorkflowState::Skipped, "Plugin was skipped".to_string()))
+                            log::info!(
+                                "⏭️  Plugin '{}' was skipped in workflow",
+                                self.plugin.name()
+                            );
+                            Ok(ProcessResult::new(
+                                PluginWorkflowState::Skipped,
+                                "Plugin was skipped".to_string(),
+                            ))
                         }
                         _ => {
-                            log::debug!("Plugin '{}' completed with status: {}", self.plugin.name(), status);
-                            Ok(ProcessResult::new(PluginWorkflowState::Completed, format!("Plugin completed with status: {}", status)))
+                            log::debug!(
+                                "Plugin '{}' completed with status: {}",
+                                self.plugin.name(),
+                                status
+                            );
+                            Ok(ProcessResult::new(
+                                PluginWorkflowState::Completed,
+                                format!("Plugin completed with status: {}", status),
+                            ))
                         }
                     }
                 } else {
-                    Ok(ProcessResult::new(PluginWorkflowState::Completed, "Plugin completed".to_string()))
+                    Ok(ProcessResult::new(
+                        PluginWorkflowState::Completed,
+                        "Plugin completed".to_string(),
+                    ))
                 }
             }
             Err(e) => {
@@ -218,7 +277,10 @@ impl Node for WorkflowPluginNode {
                     "timestamp": chrono::Utc::now().timestamp()
                 });
                 context.set("last_error", error_result);
-                Ok(ProcessResult::new(PluginWorkflowState::Failed, format!("Plugin execution error: {}", e)))
+                Ok(ProcessResult::new(
+                    PluginWorkflowState::Failed,
+                    format!("Plugin execution error: {}", e),
+                ))
             }
         }
     }

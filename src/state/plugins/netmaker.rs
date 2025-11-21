@@ -1,4 +1,4 @@
-use crate::state::plugin::{StatePlugin, StateDiff, ApplyResult, PluginCapabilities, StateAction};
+use crate::state::plugin::{ApplyResult, PluginCapabilities, StateAction, StateDiff, StatePlugin};
 use anyhow::Result;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -59,10 +59,7 @@ impl NetmakerPlugin {
 
     /// Check if netclient is installed
     async fn check_netclient_installed() -> Result<bool> {
-        let output = Command::new("which")
-            .arg("netclient")
-            .output()
-            .await?;
+        let output = Command::new("which").arg("netclient").output().await?;
         Ok(output.status.success())
     }
 
@@ -77,10 +74,7 @@ impl NetmakerPlugin {
 
     /// Get current networks from netclient
     async fn get_networks(&self) -> Result<Vec<NetmakerNetwork>> {
-        let output = Command::new("netclient")
-            .arg("list")
-            .output()
-            .await?;
+        let output = Command::new("netclient").arg("list").output().await?;
 
         if !output.status.success() {
             return Ok(Vec::new()); // No networks or not connected
@@ -95,7 +89,8 @@ impl NetmakerPlugin {
             let parts: Vec<&str> = line.split('|').map(|s| s.trim()).collect();
             if parts.len() >= 3 {
                 let network_name = parts[0].to_string();
-                let connected = parts[1].to_lowercase() == "yes" || parts[1].to_lowercase() == "true";
+                let connected =
+                    parts[1].to_lowercase() == "yes" || parts[1].to_lowercase() == "true";
                 let address = if parts.len() > 2 && !parts[2].is_empty() {
                     Some(parts[2].to_string())
                 } else {
@@ -103,7 +98,10 @@ impl NetmakerPlugin {
                 };
 
                 // Get peers for this network
-                let peers = self.get_network_peers(&network_name).await.unwrap_or_default();
+                let peers = self
+                    .get_network_peers(&network_name)
+                    .await
+                    .unwrap_or_default();
 
                 networks.push(NetmakerNetwork {
                     name: network_name.clone(),
@@ -154,7 +152,11 @@ impl NetmakerPlugin {
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(anyhow::anyhow!("Failed to join network {}: {}", network, stderr));
+            return Err(anyhow::anyhow!(
+                "Failed to join network {}: {}",
+                network,
+                stderr
+            ));
         }
 
         Ok(())
@@ -169,7 +171,11 @@ impl NetmakerPlugin {
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(anyhow::anyhow!("Failed to leave network {}: {}", network, stderr));
+            return Err(anyhow::anyhow!(
+                "Failed to leave network {}: {}",
+                network,
+                stderr
+            ));
         }
 
         Ok(())
@@ -226,8 +232,15 @@ impl StatePlugin for NetmakerPlugin {
         let mut actions = Vec::new();
 
         // Check if netclient should be installed/enabled
-        let current_installed = current.get("installed").and_then(|v| v.as_bool()).unwrap_or(false);
-        let desired_enabled = desired.get("config").and_then(|c| c.get("enabled")).and_then(|v| v.as_bool()).unwrap_or(false);
+        let current_installed = current
+            .get("installed")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        let desired_enabled = desired
+            .get("config")
+            .and_then(|c| c.get("enabled"))
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
 
         if !current_installed && desired_enabled {
             actions.push(StateAction::Create {
@@ -235,18 +248,28 @@ impl StatePlugin for NetmakerPlugin {
                 config: serde_json::json!({
                     "action": "install_netclient",
                     "type": "system_package"
-                })
+                }),
             });
         }
 
         // Check network membership changes
-        let current_networks = current.get("networks").and_then(|n| n.as_array()).unwrap_or(&vec![]);
-        let desired_networks = desired.get("config").and_then(|c| c.get("default_network")).and_then(|n| n.as_str());
+        let empty_networks = vec![];
+        let current_networks = current
+            .get("networks")
+            .and_then(|n| n.as_array())
+            .unwrap_or(&empty_networks);
+        let desired_networks = desired
+            .get("config")
+            .and_then(|c| c.get("default_network"))
+            .and_then(|n| n.as_str());
 
         if let Some(desired_network) = desired_networks {
             let currently_connected = current_networks.iter().any(|net| {
-                net.get("name").and_then(|n| n.as_str()) == Some(desired_network) &&
-                net.get("connected").and_then(|c| c.as_bool()).unwrap_or(false)
+                net.get("name").and_then(|n| n.as_str()) == Some(desired_network)
+                    && net
+                        .get("connected")
+                        .and_then(|c| c.as_bool())
+                        .unwrap_or(false)
             });
 
             if !currently_connected && desired_enabled {
@@ -256,7 +279,7 @@ impl StatePlugin for NetmakerPlugin {
                         "network": desired_network,
                         "action": "join_network",
                         "type": "network_membership"
-                    })
+                    }),
                 });
             }
         }
@@ -265,10 +288,12 @@ impl StatePlugin for NetmakerPlugin {
             plugin: self.name().to_string(),
             actions,
             metadata: crate::state::plugin::DiffMetadata {
-                timestamp: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_secs() as i64,
+                timestamp: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)?
+                    .as_secs() as i64,
                 current_hash: format!("{:x}", md5::compute(serde_json::to_string(current)?)),
                 desired_hash: format!("{:x}", md5::compute(serde_json::to_string(desired)?)),
-            }
+            },
         })
     }
 
@@ -278,7 +303,10 @@ impl StatePlugin for NetmakerPlugin {
 
         for action in &diff.actions {
             match action {
-                StateAction::Create { resource, config } => {
+                StateAction::Create {
+                    resource,
+                    config: _,
+                } => {
                     if resource == "netmaker_installation" {
                         // Install netclient
                         let install_result = Command::new("apt")
@@ -301,11 +329,16 @@ impl StatePlugin for NetmakerPlugin {
                         let network = resource.strip_prefix("netmaker_network_").unwrap_or("");
                         if let Some(token) = &self.config.enrollment_token {
                             match self.join_network(network, token).await {
-                                Ok(_) => changes_applied.push(format!("Joined Netmaker network {}", network)),
-                                Err(e) => errors.push(format!("Failed to join network {}: {}", network, e)),
+                                Ok(_) => changes_applied
+                                    .push(format!("Joined Netmaker network {}", network)),
+                                Err(e) => errors
+                                    .push(format!("Failed to join network {}: {}", network, e)),
                             }
                         } else {
-                            errors.push(format!("No enrollment token configured for network {}", network));
+                            errors.push(format!(
+                                "No enrollment token configured for network {}",
+                                network
+                            ));
                         }
                     }
                 }
@@ -323,15 +356,26 @@ impl StatePlugin for NetmakerPlugin {
 
     async fn verify_state(&self, desired: &Value) -> Result<bool> {
         let current = self.query_current_state().await?;
-        Ok(self.calculate_diff(&current, desired).await?.actions.is_empty())
+        Ok(self
+            .calculate_diff(&current, desired)
+            .await?
+            .actions
+            .is_empty())
     }
 
     async fn create_checkpoint(&self) -> Result<crate::state::plugin::Checkpoint> {
         let state = self.query_current_state().await?;
         Ok(crate::state::plugin::Checkpoint {
-            id: format!("netmaker_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_secs()),
+            id: format!(
+                "netmaker_{}",
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)?
+                    .as_secs()
+            ),
             plugin: self.name().to_string(),
-            timestamp: std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_secs() as i64,
+            timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)?
+                .as_secs() as i64,
             state_snapshot: state,
             backend_checkpoint: None,
         })
@@ -340,6 +384,8 @@ impl StatePlugin for NetmakerPlugin {
     async fn rollback(&self, _checkpoint: &crate::state::plugin::Checkpoint) -> Result<()> {
         // Rollback would leave networks and potentially rejoin them
         // This is a simplified implementation
-        Err(anyhow::anyhow!("Netmaker rollback not implemented - would require leaving and rejoining networks"))
+        Err(anyhow::anyhow!(
+            "Netmaker rollback not implemented - would require leaving and rejoining networks"
+        ))
     }
 }

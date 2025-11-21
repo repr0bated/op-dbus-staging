@@ -47,7 +47,7 @@ fn default_security_enabled() -> bool {
 }
 
 fn default_obfuscation_level() -> u8 {
-    1  // Basic obfuscation enabled by default
+    1 // Basic obfuscation enabled by default
 }
 
 fn default_auto_discover() -> bool {
@@ -196,11 +196,18 @@ impl OpenFlowPlugin {
     }
 
     /// Create OpenFlow client for a bridge
-    async fn create_openflow_client(&self, bridge: &str) -> Result<crate::native::openflow::OpenFlowClient> {
+    async fn create_openflow_client(
+        &self,
+        bridge: &str,
+    ) -> Result<crate::native::openflow::OpenFlowClient> {
         // Connect to OpenFlow switch (OVS typically listens on localhost:6633)
         let addr = std::net::SocketAddr::from(([127, 0, 0, 1], 6633));
-        let client = crate::native::openflow::OpenFlowClient::connect(addr).await
-            .context(format!("Failed to connect to OpenFlow switch for bridge {}", bridge))?;
+        let client = crate::native::openflow::OpenFlowClient::connect(addr)
+            .await
+            .context(format!(
+                "Failed to connect to OpenFlow switch for bridge {}",
+                bridge
+            ))?;
         Ok(client)
     }
 
@@ -597,7 +604,9 @@ impl OpenFlowPlugin {
         self.ovsdb_client.add_port(bridge, &port.name).await?;
 
         // Set port type to internal
-        self.ovsdb_client.set_interface_type(&port.name, "internal").await?;
+        self.ovsdb_client
+            .set_interface_type(&port.name, "internal")
+            .await?;
 
         Ok(())
     }
@@ -739,9 +748,7 @@ impl OpenFlowPlugin {
         security_flows.push(FlowEntry {
             table: 0,
             priority: 31000,
-            match_fields: HashMap::from([
-                ("arp".to_string(), "".to_string()),
-            ]),
+            match_fields: HashMap::from([("arp".to_string(), "".to_string())]),
             actions: vec![
                 FlowAction::Controller { max_len: Some(128) }, // Send to controller for inspection
             ],
@@ -811,9 +818,7 @@ impl OpenFlowPlugin {
         security_flows.push(FlowEntry {
             table: 0,
             priority: 32000,
-            match_fields: HashMap::from([
-                ("dl_src".to_string(), "ff:ff:ff:ff:ff:ff".to_string()),
-            ]),
+            match_fields: HashMap::from([("dl_src".to_string(), "ff:ff:ff:ff:ff:ff".to_string())]),
             actions: vec![FlowAction::Drop],
             cookie: Some(0xDEAD0009),
             idle_timeout: 0,
@@ -933,9 +938,7 @@ impl OpenFlowPlugin {
         security_flows.push(FlowEntry {
             table: 0,
             priority: 30000,
-            match_fields: HashMap::from([
-                ("icmp".to_string(), "".to_string()),
-            ]),
+            match_fields: HashMap::from([("icmp".to_string(), "".to_string())]),
             actions: vec![
                 FlowAction::Controller { max_len: Some(128) }, // Rate limit ICMP
             ],
@@ -984,14 +987,12 @@ impl OpenFlowPlugin {
         // Rewrite all outbound packet TTLs to a standard value (64 or 128)
         obfuscation_flows.push(FlowEntry {
             table: 0,
-            priority: 29000,  // Lower than security (30000+), higher than normal
-            match_fields: HashMap::from([
-                ("ip".to_string(), "".to_string()),
-            ]),
+            priority: 29000, // Lower than security (30000+), higher than normal
+            match_fields: HashMap::from([("ip".to_string(), "".to_string())]),
             actions: vec![
                 FlowAction::SetField {
                     field: "nw_ttl".to_string(),
-                    value: "64".to_string(),  // Standard Linux TTL
+                    value: "64".to_string(), // Standard Linux TTL
                 },
                 FlowAction::Normal,
             ],
@@ -1005,11 +1006,12 @@ impl OpenFlowPlugin {
         obfuscation_flows.push(FlowEntry {
             table: 0,
             priority: 29000,
-            match_fields: HashMap::from([
-                ("tcp".to_string(), "".to_string()),
-            ]),
+            match_fields: HashMap::from([("tcp".to_string(), "".to_string())]),
             actions: vec![
-                FlowAction::LoadRegister { register: 0, value: 1 },  // Mark for padding
+                FlowAction::LoadRegister {
+                    register: 0,
+                    value: 1,
+                }, // Mark for padding
                 FlowAction::Normal,
             ],
             cookie: Some(0xCAFE0002),
@@ -1023,15 +1025,16 @@ impl OpenFlowPlugin {
         obfuscation_flows.push(FlowEntry {
             table: 0,
             priority: 29000,
-            match_fields: HashMap::from([
-                ("udp".to_string(), "".to_string()),
-            ]),
+            match_fields: HashMap::from([("udp".to_string(), "".to_string())]),
             actions: vec![
-                FlowAction::LoadRegister { register: 1, value: 1 },  // Mark for timing control
+                FlowAction::LoadRegister {
+                    register: 1,
+                    value: 1,
+                }, // Mark for timing control
                 FlowAction::Normal,
             ],
             cookie: Some(0xCAFE0003),
-            idle_timeout: 30,  // Vary between flows for timing obfuscation
+            idle_timeout: 30, // Vary between flows for timing obfuscation
             hard_timeout: 0,
         });
 
@@ -1056,13 +1059,16 @@ impl OpenFlowPlugin {
             priority: 28000,
             match_fields: HashMap::from([
                 ("udp".to_string(), "".to_string()),
-                ("tp_dst".to_string(), "51820".to_string()),  // WireGuard
+                ("tp_dst".to_string(), "51820".to_string()), // WireGuard
             ]),
             actions: vec![
-                FlowAction::LoadRegister { register: 2, value: 0x51820 },  // Mark as WireGuard
+                FlowAction::LoadRegister {
+                    register: 2,
+                    value: 0x51820,
+                }, // Mark as WireGuard
                 FlowAction::SetField {
                     field: "tp_dst".to_string(),
-                    value: "443".to_string(),  // Disguise as HTTPS
+                    value: "443".to_string(), // Disguise as HTTPS
                 },
                 FlowAction::Normal,
             ],
@@ -1078,10 +1084,13 @@ impl OpenFlowPlugin {
             priority: 28000,
             match_fields: HashMap::from([
                 ("tcp".to_string(), "".to_string()),
-                ("tcp_flags".to_string(), "+ack".to_string()),  // Established TCP
+                ("tcp_flags".to_string(), "+ack".to_string()), // Established TCP
             ]),
             actions: vec![
-                FlowAction::LoadRegister { register: 3, value: 1 },  // Mark for decoy injection
+                FlowAction::LoadRegister {
+                    register: 3,
+                    value: 1,
+                }, // Mark for decoy injection
                 FlowAction::Normal,
             ],
             cookie: Some(0xBEEF0002),
@@ -1099,7 +1108,10 @@ impl OpenFlowPlugin {
                 ("tp_dst".to_string(), "443".to_string()),
             ]),
             actions: vec![
-                FlowAction::LoadRegister { register: 4, value: 443 },  // Mark as HTTPS-shaped
+                FlowAction::LoadRegister {
+                    register: 4,
+                    value: 443,
+                }, // Mark as HTTPS-shaped
                 FlowAction::Normal,
             ],
             cookie: Some(0xBEEF0003),
@@ -1113,11 +1125,12 @@ impl OpenFlowPlugin {
         advanced_flows.push(FlowEntry {
             table: 0,
             priority: 28000,
-            match_fields: HashMap::from([
-                ("ip".to_string(), "".to_string()),
-            ]),
+            match_fields: HashMap::from([("ip".to_string(), "".to_string())]),
             actions: vec![
-                FlowAction::LoadRegister { register: 5, value: 1400 },  // Target fragment size
+                FlowAction::LoadRegister {
+                    register: 5,
+                    value: 1400,
+                }, // Target fragment size
                 FlowAction::Normal,
             ],
             cookie: Some(0xBEEF0004),
@@ -1233,7 +1246,8 @@ impl StatePlugin for OpenFlowPlugin {
 
                 // Level 3: Advanced obfuscation (protocol mimicry, decoy traffic, morphing)
                 if desired_config.obfuscation_level >= 3 {
-                    let advanced_flows = Self::generate_advanced_obfuscation_flows(&bridge_config.name);
+                    let advanced_flows =
+                        Self::generate_advanced_obfuscation_flows(&bridge_config.name);
                     flow_count += advanced_flows.len();
                     all_flows.extend(advanced_flows);
                 }

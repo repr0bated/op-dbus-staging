@@ -2,5 +2,4 @@
 
 pub mod image_manager;
 
-pub use image_manager::{ImageManager, ImageMetadata, FileEntry};
-
+pub use image_manager::{FileEntry, ImageManager, ImageMetadata};

@@ -229,6 +229,12 @@
                 <div class="section-header">
                     <h2>🤖 AI Chat</h2>
                     <div class="chat-controls">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <label for="modelSelect" style="font-weight: 500; font-size: 0.9rem;">Model:</label>
+                            <select id="modelSelect" class="model-dropdown" style="padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); font-size: 0.9rem; min-width: 200px;">
+                                <option value="">Loading models...</option>
+                            </select>
+                        </div>
                         <button class="btn btn-sm" onclick="clearChat()">
                             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                                 <path d="M2 4H14M5 4V2C5 1.4 5.4 1 6 1H10C10.6 1 11 1.4 11 2V4M7 7V11M10 7V11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>

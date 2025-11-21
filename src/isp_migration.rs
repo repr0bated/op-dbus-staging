@@ -26,20 +26,20 @@ pub struct ProviderAnalysis {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum ServiceType {
-    SharedVPS,        // Multiple VMs on shared host
-    DedicatedVPS,     // Dedicated resources, shared host
-    DedicatedServer,  // Full physical server
-    BareMetal,        // Dedicated server with full hardware access
+    SharedVPS,       // Multiple VMs on shared host
+    DedicatedVPS,    // Dedicated resources, shared host
+    DedicatedServer, // Full physical server
+    BareMetal,       // Dedicated server with full hardware access
     Unknown,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum FeatureAvailability {
     Available,
-    RestrictedByDefault,    // Available but must request
-    RequiresUpgrade,        // Need to pay more
-    NotOffered,            // Provider doesn't support
-    TechnicallyBlocked,    // VM/container limitation
+    RestrictedByDefault, // Available but must request
+    RequiresUpgrade,     // Need to pay more
+    NotOffered,          // Provider doesn't support
+    TechnicallyBlocked,  // VM/container limitation
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -53,10 +53,10 @@ pub struct Restriction {
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum RestrictionSeverity {
-    Critical,   // Blocks primary use case
-    High,       // Significant limitation
-    Medium,     // Inconvenient but workable
-    Low,        // Minor issue
+    Critical, // Blocks primary use case
+    High,     // Significant limitation
+    Medium,   // Inconvenient but workable
+    Low,      // Minor issue
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -120,7 +120,8 @@ impl IspMigrationAnalyzer {
         let restrictions = self.detect_restrictions()?;
         let recommended_providers = self.recommend_providers(&restrictions);
         let migration_cost = self.analyze_costs(&current_provider, &recommended_providers);
-        let migration_plan = self.generate_migration_plan(&current_provider, &recommended_providers[0]);
+        let migration_plan =
+            self.generate_migration_plan(&current_provider, &recommended_providers[0]);
 
         Ok(IspMigrationReport {
             current_provider,
@@ -144,16 +145,32 @@ impl IspMigrationAnalyzer {
 
         if is_vm {
             // VPS/VM - many features restricted
-            feature_availability.insert("gpu_passthrough".to_string(), FeatureAvailability::NotOffered);
-            feature_availability.insert("nested_virt".to_string(), FeatureAvailability::RestrictedByDefault);
-            feature_availability.insert("iommu".to_string(), FeatureAvailability::TechnicallyBlocked);
-            feature_availability.insert("full_hardware_access".to_string(), FeatureAvailability::RequiresUpgrade);
+            feature_availability.insert(
+                "gpu_passthrough".to_string(),
+                FeatureAvailability::NotOffered,
+            );
+            feature_availability.insert(
+                "nested_virt".to_string(),
+                FeatureAvailability::RestrictedByDefault,
+            );
+            feature_availability
+                .insert("iommu".to_string(), FeatureAvailability::TechnicallyBlocked);
+            feature_availability.insert(
+                "full_hardware_access".to_string(),
+                FeatureAvailability::RequiresUpgrade,
+            );
         } else {
             // Dedicated/bare metal
-            feature_availability.insert("gpu_passthrough".to_string(), FeatureAvailability::Available);
+            feature_availability.insert(
+                "gpu_passthrough".to_string(),
+                FeatureAvailability::Available,
+            );
             feature_availability.insert("nested_virt".to_string(), FeatureAvailability::Available);
             feature_availability.insert("iommu".to_string(), FeatureAvailability::Available);
-            feature_availability.insert("full_hardware_access".to_string(), FeatureAvailability::Available);
+            feature_availability.insert(
+                "full_hardware_access".to_string(),
+                FeatureAvailability::Available,
+            );
         }
 
         let restrictions_score = self.calculate_restriction_score(&feature_availability);
@@ -192,8 +209,7 @@ impl IspMigrationAnalyzer {
 
     fn is_running_in_vm(&self) -> Result<bool> {
         // Check systemd-detect-virt
-        let output = std::process::Command::new("systemd-detect-virt")
-            .output();
+        let output = std::process::Command::new("systemd-detect-virt").output();
 
         if let Ok(out) = output {
             let virt_type = String::from_utf8_lossy(&out.stdout).trim().to_string();
@@ -225,8 +241,8 @@ impl IspMigrationAnalyzer {
         let mut restrictions = Vec::new();
 
         // Check GPU passthrough
-        let has_gpu = std::path::Path::new("/dev/nvidia0").exists() ||
-                     std::path::Path::new("/dev/dri/card0").exists();
+        let has_gpu = std::path::Path::new("/dev/nvidia0").exists()
+            || std::path::Path::new("/dev/dri/card0").exists();
 
         if !has_gpu {
             let lspci_output = std::process::Command::new("lspci")
@@ -235,10 +251,10 @@ impl IspMigrationAnalyzer {
                 .and_then(|o| String::from_utf8(o.stdout).ok())
                 .unwrap_or_default();
 
-            let host_might_have_gpu = lspci_output.contains("VGA") ||
-                                     lspci_output.contains("3D controller") ||
-                                     lspci_output.contains("NVIDIA") ||
-                                     lspci_output.contains("AMD/ATI");
+            let host_might_have_gpu = lspci_output.contains("VGA")
+                || lspci_output.contains("3D controller")
+                || lspci_output.contains("NVIDIA")
+                || lspci_output.contains("AMD/ATI");
 
             if !host_might_have_gpu || lspci_output.is_empty() {
                 restrictions.push(Restriction {
@@ -370,10 +386,7 @@ impl IspMigrationAnalyzer {
                 "Fast provisioning (minutes)".to_string(),
                 "Full hardware access".to_string(),
             ],
-            cons: vec![
-                "Higher cost".to_string(),
-                "Limited GPU options".to_string(),
-            ],
+            cons: vec!["Higher cost".to_string(), "Limited GPU options".to_string()],
         });
 
         // Scaleway Dedibox
@@ -405,7 +418,11 @@ impl IspMigrationAnalyzer {
         providers
     }
 
-    fn analyze_costs(&self, current: &ProviderAnalysis, recommended: &[ProviderRecommendation]) -> CostAnalysis {
+    fn analyze_costs(
+        &self,
+        current: &ProviderAnalysis,
+        recommended: &[ProviderRecommendation],
+    ) -> CostAnalysis {
         // Estimate opportunity cost of restrictions
         let mut opportunity_cost = 0.0;
 
@@ -419,7 +436,10 @@ impl IspMigrationAnalyzer {
         }
 
         let current_monthly = 50.0; // Estimate, user should provide
-        let recommended_cost = recommended.first().map(|p| p.starting_price_monthly).unwrap_or(100.0);
+        let recommended_cost = recommended
+            .first()
+            .map(|p| p.starting_price_monthly)
+            .unwrap_or(100.0);
         let cost_diff = recommended_cost - current_monthly;
 
         let roi_months = if cost_diff < 0.0 || opportunity_cost > cost_diff.abs() {
@@ -437,14 +457,19 @@ impl IspMigrationAnalyzer {
         }
     }
 
-    fn generate_migration_plan(&self, _current: &ProviderAnalysis, target: &ProviderRecommendation) -> MigrationPlan {
+    fn generate_migration_plan(
+        &self,
+        _current: &ProviderAnalysis,
+        target: &ProviderRecommendation,
+    ) -> MigrationPlan {
         let mut steps = Vec::new();
 
         steps.push(MigrationStep {
             order: 1,
             description: "Export current system configuration with op-dbus".to_string(),
             commands: vec![
-                "sudo op-dbus discover --export --generate-nix --output current-system.json".to_string(),
+                "sudo op-dbus discover --export --generate-nix --output current-system.json"
+                    .to_string(),
                 "# This captures: hardware, kernel params, packages, services".to_string(),
             ],
             estimated_time: "5 minutes".to_string(),
@@ -507,7 +532,8 @@ impl IspMigrationAnalyzer {
             description: "Verify op-dbus detects all features unlocked".to_string(),
             commands: vec![
                 "ssh newserver 'sudo op-dbus discover'".to_string(),
-                "# Verify: GPU passthrough available, nested virt enabled, IOMMU working".to_string(),
+                "# Verify: GPU passthrough available, nested virt enabled, IOMMU working"
+                    .to_string(),
             ],
             estimated_time: "10 minutes".to_string(),
             reversible: false,

@@ -7,11 +7,13 @@ use anyhow::{Context, Result};
 use rusqlite::{params, Connection};
 use serde_json::Value as JsonValue;
 use std::path::Path;
+use std::sync::RwLock;
 use zbus_xml::Node as XmlNode;
 
 /// Introspection cache storing JSON representations
+/// Uses RwLock to make Connection Send+Sync for async contexts
 pub struct IntrospectionCache {
-    conn: Connection,
+    conn: RwLock<Connection>,
 }
 
 impl IntrospectionCache {
@@ -64,7 +66,9 @@ impl IntrospectionCache {
             "#,
         )?;
 
-        Ok(Self { conn })
+        Ok(Self {
+            conn: RwLock::new(conn),
+        })
     }
 
     /// Store introspection XML as JSON
@@ -90,17 +94,11 @@ impl IntrospectionCache {
         for interface in node.interfaces() {
             let iface_name = interface.name().as_ref().to_string();
 
-            self.conn.execute(
+            self.conn.write().map_err(|e| anyhow::anyhow!("{}", e))?.execute(
                 "INSERT OR REPLACE INTO introspection_cache
                  (service_name, object_path, interface_name, cached_at, introspection_json)
                  VALUES (?1, ?2, ?3, ?4, ?5)",
-                params![
-                    service_name,
-                    object_path,
-                    &iface_name,
-                    timestamp,
-                    &json_str,
-                ],
+                params![service_name, object_path, &iface_name, timestamp, &json_str,],
             )?;
 
             // Store methods for fast lookup
@@ -128,7 +126,7 @@ impl IntrospectionCache {
                         .collect::<Vec<_>>(),
                 });
 
-                self.conn.execute(
+                self.conn.write().map_err(|e| anyhow::anyhow!("{}", e))?.execute(
                     "INSERT OR REPLACE INTO service_methods
                      (service_name, interface_name, method_name, signature_json)
                      VALUES (?1, ?2, ?3, ?4)",
@@ -150,7 +148,7 @@ impl IntrospectionCache {
                     zbus_xml::PropertyAccess::ReadWrite => "readwrite",
                 };
 
-                self.conn.execute(
+                self.conn.write().map_err(|e| anyhow::anyhow!("{}", e))?.execute(
                     "INSERT OR REPLACE INTO service_properties
                      (service_name, interface_name, property_name, type_signature, access)
                      VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -179,7 +177,7 @@ impl IntrospectionCache {
                         .collect::<Vec<_>>(),
                 });
 
-                self.conn.execute(
+                self.conn.write().map_err(|e| anyhow::anyhow!("{}", e))?.execute(
                     "INSERT OR REPLACE INTO service_signals
                      (service_name, interface_name, signal_name, signature_json)
                      VALUES (?1, ?2, ?3, ?4)",
@@ -204,14 +202,14 @@ impl IntrospectionCache {
         interface_name: Option<&str>,
     ) -> Result<Option<JsonValue>> {
         let query = if let Some(iface) = interface_name {
-            self.conn.query_row(
+            self.conn.read().map_err(|e| anyhow::anyhow!("{}", e))?.query_row(
                 "SELECT introspection_json FROM introspection_cache
                  WHERE service_name = ?1 AND object_path = ?2 AND interface_name = ?3",
                 params![service_name, object_path, iface],
                 |row| row.get::<_, String>(0),
             )
         } else {
-            self.conn.query_row(
+            self.conn.read().map_err(|e| anyhow::anyhow!("{}", e))?.query_row(
                 "SELECT introspection_json FROM introspection_cache
                  WHERE service_name = ?1 AND object_path = ?2
                  LIMIT 1",
@@ -229,9 +227,10 @@ impl IntrospectionCache {
 
     /// Get all methods for a service interface
     pub fn get_methods_json(&self, service_name: &str, interface_name: &str) -> Result<JsonValue> {
-        let mut stmt = self.conn.prepare(
+        let conn = self.conn.read().map_err(|e| anyhow::anyhow!("{}", e))?;
+        let mut stmt = conn.prepare(
             "SELECT method_name, signature_json FROM service_methods
-             WHERE service_name = ?1 AND interface_name = ?2"
+             WHERE service_name = ?1 AND interface_name = ?2",
         )?;
 
         let methods: Vec<JsonValue> = stmt
@@ -241,15 +240,19 @@ impl IntrospectionCache {
             })?
             .collect::<Result<Vec<_>, _>>()?;
 
+        drop(stmt);
+        drop(conn);
+
         Ok(serde_json::json!({ "methods": methods }))
     }
 
     /// Search for methods by name pattern
     pub fn search_methods(&self, pattern: &str) -> Result<Vec<JsonValue>> {
-        let mut stmt = self.conn.prepare(
+        let conn = self.conn.read().map_err(|e| anyhow::anyhow!("{}", e))?;
+        let mut stmt = conn.prepare(
             "SELECT service_name, interface_name, signature_json
              FROM service_methods
-             WHERE method_name LIKE ?1"
+             WHERE method_name LIKE ?1",
         )?;
 
         let results: Vec<JsonValue> = stmt
@@ -267,6 +270,9 @@ impl IntrospectionCache {
                 Ok(method)
             })?
             .collect::<Result<Vec<_>, _>>()?;
+
+        drop(stmt);
+        drop(conn);
 
         Ok(results)
     }
@@ -338,7 +344,7 @@ impl IntrospectionCache {
             .as_secs() as i64
             - (days * 86400) as i64;
 
-        let count = self.conn.execute(
+        let count = self.conn.write().map_err(|e| anyhow::anyhow!("{}", e))?.execute(
             "DELETE FROM introspection_cache WHERE cached_at < ?1",
             params![cutoff],
         )?;
@@ -348,25 +354,25 @@ impl IntrospectionCache {
 
     /// Get cache statistics
     pub fn get_stats(&self) -> Result<JsonValue> {
-        let total_services: i64 = self.conn.query_row(
+        let total_services: i64 = self.conn.read().map_err(|e| anyhow::anyhow!("{}", e))?.query_row(
             "SELECT COUNT(DISTINCT service_name) FROM introspection_cache",
             [],
             |row| row.get(0),
         )?;
 
-        let total_interfaces: i64 = self.conn.query_row(
-            "SELECT COUNT(*) FROM introspection_cache",
-            [],
-            |row| row.get(0),
-        )?;
+        let total_interfaces: i64 =
+            self.conn
+                .read().map_err(|e| anyhow::anyhow!("{}", e))?
+                .query_row("SELECT COUNT(*) FROM introspection_cache", [], |row| {
+                    row.get(0)
+                })?;
 
-        let total_methods: i64 = self.conn.query_row(
-            "SELECT COUNT(*) FROM service_methods",
-            [],
-            |row| row.get(0),
-        )?;
+        let total_methods: i64 =
+            self.conn
+                .read().map_err(|e| anyhow::anyhow!("{}", e))?
+                .query_row("SELECT COUNT(*) FROM service_methods", [], |row| row.get(0))?;
 
-        let db_size = std::fs::metadata(self.conn.path().unwrap())?.len();
+        let db_size = std::fs::metadata(self.conn.read().unwrap().path().unwrap())?.len();
 
         Ok(serde_json::json!({
             "services": total_services,

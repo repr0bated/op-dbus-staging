@@ -57,19 +57,22 @@ impl OvsdbClient {
         stream.write_all(request_str.as_bytes()).await?;
         stream.write_all(b"\n").await?;
         stream.flush().await?;
-        
+
         // Read response with timeout
         // Note: OVSDB responses are newline-terminated JSON objects
         let mut reader = BufReader::new(stream);
         let mut response_line = String::new();
-        
+
         tokio::time::timeout(
             std::time::Duration::from_secs(30),
             reader.read_line(&mut response_line),
         )
         .await
-        .context(format!("OVSDB response timeout after sending: {}", request_str))??;
-        
+        .context(format!(
+            "OVSDB response timeout after sending: {}",
+            request_str
+        ))??;
+
         log::debug!("Received OVSDB response: {}", response_line);
 
         let response: Value = serde_json::from_str(&response_line)?;
@@ -208,7 +211,10 @@ impl OvsdbClient {
             log::info!("Bridge {} successfully created and persisted", bridge_name);
             Ok(())
         } else {
-            Err(anyhow::anyhow!("Bridge {} creation failed - not found after creation", bridge_name))
+            Err(anyhow::anyhow!(
+                "Bridge {} creation failed - not found after creation",
+                bridge_name
+            ))
         }
     }
 
@@ -405,7 +411,11 @@ impl OvsdbClient {
 
     /// Set interface type
     #[allow(dead_code)]
-    pub async fn set_interface_type(&self, interface_name: &str, interface_type: &str) -> Result<()> {
+    pub async fn set_interface_type(
+        &self,
+        interface_name: &str,
+        interface_type: &str,
+    ) -> Result<()> {
         let operations = json!([
             {
                 "op": "update",

@@ -9,8 +9,10 @@ User=jeremy
 WorkingDirectory=/git/operation-dbus
 Environment="NODE_ENV=production"
 Environment="PATH=/home/jeremy/.nvm/versions/node/v22.19.0/bin:/usr/local/bin:/usr/bin:/bin"
-# Set default model via environment variable
-Environment="OLLAMA_DEFAULT_MODEL=llama2"
+Environment="AI_PROVIDER=huggingface"
+Environment="HF_EMAIL=jeremy@ghostbridge.tech"
+Environment="HF_TOKEN=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"
+Environment="HF_MODEL=Qwen/Qwen2.5-VL-7B-Instruct"
 ExecStart=/home/jeremy/.nvm/versions/node/v22.19.0/bin/node /git/operation-dbus/chat-server.js
 Restart=always
 RestartSec=10

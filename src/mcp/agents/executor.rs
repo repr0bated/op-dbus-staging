@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use std::process::Command;
 use std::time::Duration;
 use uuid::Uuid;
-use zbus::{interface, connection::Builder, object_server::SignalEmitter};
+use zbus::{connection::Builder, interface, object_server::SignalEmitter};
 
 // Security configuration
 const ALLOWED_COMMANDS: &[&str] = &[
@@ -265,7 +265,8 @@ impl ExecutorAgent {
 
     /// Signal emitted when task completes
     #[zbus(signal)]
-    async fn task_completed(signal_emitter: &SignalEmitter<'_>, result: String) -> zbus::Result<()>;
+    async fn task_completed(signal_emitter: &SignalEmitter<'_>, result: String)
+        -> zbus::Result<()>;
 }
 
 #[tokio::main]
@@ -275,10 +276,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let agent_id = if args.len() > 1 {
         args[1].clone()
     } else {
-        format!(
-            "executor-{}",
-            Uuid::new_v4().to_string()[..8].to_string()
-        )
+        format!("executor-{}", Uuid::new_v4().to_string()[..8].to_string())
     };
 
     println!("Starting Secure Executor Agent: {}", agent_id);

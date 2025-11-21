@@ -106,7 +106,11 @@ impl AiContextProvider {
             context.hardware.cpu_cores,
             context.hardware.memory_gb,
             context.hardware.architecture,
-            if context.hardware.is_virtual_machine { "Yes" } else { "No" }
+            if context.hardware.is_virtual_machine {
+                "Yes"
+            } else {
+                "No"
+            }
         ));
 
         // Network
@@ -232,9 +236,7 @@ impl AiContextProvider {
     }
 
     async fn gather_network_context(&self) -> Result<NetworkContext> {
-        let hostname = gethostname::gethostname()
-            .to_string_lossy()
-            .to_string();
+        let hostname = gethostname::gethostname().to_string_lossy().to_string();
 
         // Get network interfaces
         let interfaces = std::fs::read_dir("/sys/class/net")

@@ -1,11 +1,11 @@
-// Example: Test DeepSeek Integration
-// Run with: cargo run --example test_deepseek_integration --features web
+// Example: Test AI Integration
+// Run with: cargo run --example test_ai_integration --features web
 
 use op_dbus::mcp::ai_context_provider::AiContextProvider;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    println!("🧪 Testing DeepSeek Integration\n");
+    println!("🧪 Testing AI Integration\n");
     println!("════════════════════════════════════════════════════════════\n");
 
     // Test 1: System Context Provider
@@ -25,10 +25,20 @@ async fn main() -> anyhow::Result<()> {
             println!("   Hostname: {}", context.network.hostname);
             println!("   Network Interfaces: {:?}", context.network.interfaces);
             println!("   Provider: {:?}", context.network.provider);
-            println!("   Virtualization: {}", if context.hardware.virtualization_available { "Available" } else { "Not Available" });
+            println!(
+                "   Virtualization: {}",
+                if context.hardware.virtualization_available {
+                    "Available"
+                } else {
+                    "Not Available"
+                }
+            );
 
             if !context.capabilities.cpu_features.is_empty() {
-                println!("\n   CPU Features: {}", context.capabilities.cpu_features.join(", "));
+                println!(
+                    "\n   CPU Features: {}",
+                    context.capabilities.cpu_features.join(", ")
+                );
             }
 
             if !context.restrictions.bios_locks.is_empty() {
@@ -58,17 +68,20 @@ async fn main() -> anyhow::Result<()> {
     if let Ok(api_key) = std::env::var("OLLAMA_API_KEY") {
         use op_dbus::mcp::ollama::OllamaClient;
 
-        let client = OllamaClient::deepseek_cloud(api_key);
+        let client = OllamaClient::cloud(api_key);
 
-        println!("🤖 Connecting to DeepSeek...");
+        println!("🤖 Connecting to AI Service...");
 
-        match client.deepseek_chat("Hello! Please respond with just 'Hello from DeepSeek!' to confirm you're working.").await {
+        match client
+            .chat("Hello! Please respond with just 'Hello!' to confirm you're working.")
+            .await
+        {
             Ok(response) => {
-                println!("✅ DeepSeek responded!\n");
+                println!("✅ AI responded!\n");
                 println!("Response: {}\n", response);
             }
             Err(e) => {
-                println!("❌ DeepSeek connection failed: {}\n", e);
+                println!("❌ AI connection failed: {}\n", e);
                 println!("   This might be a network issue or invalid API key.");
             }
         }
@@ -79,13 +92,13 @@ async fn main() -> anyhow::Result<()> {
 
     println!("════════════════════════════════════════════════════════════");
     println!("\n✅ Integration test complete!\n");
-    println!("Your DeepSeek integration is ready to use:");
+    println!("Your AI integration is ready to use:");
     println!("  • AI Context Provider: Gathers system information");
-    println!("  • Ollama Client: Connects to DeepSeek for AI chat");
+    println!("  • Ollama Client: Connects to AI service for chat");
     println!("  • Chat Server: Enhanced with tool awareness");
     println!("\nNext steps:");
     println!("  1. Fix mcp feature compilation errors (pre-existing)");
-    println!("  2. Run: cargo run --bin deepseek-chat --features web,mcp");
+    println!("  2. Run: cargo run --bin ai-chat --features web,mcp");
     println!("  3. Access at: http://100.104.70.1:8080\n");
 
     Ok(())
