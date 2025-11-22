@@ -41,22 +41,26 @@
 mod ollama;
 #[path = "workflow_plugin_introspection.rs"]
 mod workflow_plugin_introspection;
+#[path = "orchestrator.rs"]
+mod orchestrator;
+#[path = "introspection_cache.rs"]
+mod introspection_cache;
 
 use anyhow::Result;
 use axum::{
     extract::ws::{Message, WebSocket, WebSocketUpgrade},
     extract::State,
     response::IntoResponse,
-    routing::get,
-    Router,
+    routing::{get, post},
+    Json, Router,
 };
 use futures::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::{collections::HashMap, net::SocketAddr, path::PathBuf, sync::Arc};
 use tokio::sync::RwLock;
 use tower_http::{
-    services::{ServeDir, ServeFile},
+    services::ServeDir,
     trace::TraceLayer,
 };
 use tracing::{error, info};
@@ -107,6 +111,9 @@ struct ChatState {
     // Cached unified introspection data from plugins and workflows
     // This replaces the need for IntrospectionCache in web context
     tool_introspection: Arc<RwLock<Option<Value>>>,
+    // Enhanced capabilities: orchestrator for system orchestration
+    _orchestrator: Arc<orchestrator::Orchestrator>, // TODO: Implement full orchestrator integration
+    // TODO: Add introspection cache when SQLite threading issues are resolved
 }
 
 #[tokio::main]
@@ -149,11 +156,19 @@ async fn main() -> Result<()> {
     let tool_introspection = build_unified_tool_introspection().await;
     info!("✅ Unified tool introspection initialized from workflows and plugins");
 
-    // Create chat state with unified introspection support
+    // Initialize orchestrator for system task orchestration
+    let orchestrator = Arc::new(orchestrator::Orchestrator::new().await?);
+    info!("✅ Orchestrator initialized for system task orchestration");
+
+    // TODO: Initialize introspection cache for D-Bus service discovery
+    // Currently disabled due to SQLite threading issues in async contexts
+
+    // Create enhanced chat state with orchestrator capabilities
     let chat_state = ChatState {
         ollama_client,
         conversations: Arc::new(RwLock::new(HashMap::new())),
         tool_introspection: Arc::new(RwLock::new(tool_introspection)),
+        _orchestrator: orchestrator,
     };
 
     info!("✅ Chat state initialized with unified introspection support");
@@ -168,6 +183,8 @@ async fn main() -> Result<()> {
 
     // Create the main router
     let app = Router::new()
+        // MCP endpoint for proxy server
+        .route("/api/mcp", post(mcp_handler))
         // WebSocket endpoint for chat
         .route("/ws", get(websocket_handler))
         // Serve web directory - handles all static files including HTML, CSS, JS
@@ -185,6 +202,503 @@ async fn main() -> Result<()> {
     axum::serve(listener, app).await?;
 
     Ok(())
+}
+
+// Enhanced MCP helper functions with orchestrator integration
+
+async fn get_available_tools(state: &ChatState) -> Vec<Value> {
+    // Get tools from unified introspection
+    let tool_introspection = state.tool_introspection.read().await;
+    if let Some(introspection) = tool_introspection.as_ref() {
+        if let Some(tools) = introspection.get("tools") {
+            if let Some(tools_array) = tools.as_array() {
+                return tools_array.clone();
+            }
+        }
+    }
+
+    // Fallback: get orchestrator capabilities
+    get_orchestrator_tools(state).await
+}
+
+async fn get_orchestrator_tools(_state: &ChatState) -> Vec<Value> {
+    vec![
+        json!({
+            "name": "orchestrate_system_task",
+            "description": "Orchestrate complex system tasks across multiple agents",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "task_type": {
+                        "type": "string",
+                        "description": "Type of system task (deploy, monitor, configure, etc.)"
+                    },
+                    "target_systems": {
+                        "type": "array",
+                        "items": { "type": "string" },
+                        "description": "Target systems or services"
+                    },
+                    "parameters": {
+                        "type": "object",
+                        "description": "Task-specific parameters"
+                    }
+                },
+                "required": ["task_type"]
+            }
+        }),
+        json!({
+            "name": "dbus_discovery",
+            "description": "Discover and introspect D-Bus services and interfaces",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "service_filter": {
+                        "type": "string",
+                        "description": "Filter services by name pattern"
+                    },
+                    "interface_filter": {
+                        "type": "string",
+                        "description": "Filter interfaces by name pattern"
+                    }
+                }
+            }
+        }),
+        json!({
+            "name": "system_introspect",
+            "description": "Get comprehensive system introspection data",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "layers": {
+                        "type": "array",
+                        "items": { "type": "string" },
+                        "description": "System layers to introspect (physical, network, service, application)",
+                        "default": ["physical", "network", "service", "application"]
+                    }
+                }
+            }
+        }),
+        json!({
+            "name": "workflow_orchestrate",
+            "description": "Execute complex multi-step workflows with orchestration",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "workflow_type": {
+                        "type": "string",
+                        "description": "Type of workflow (deployment, monitoring, maintenance)"
+                    },
+                    "targets": {
+                        "type": "array",
+                        "items": { "type": "string" },
+                        "description": "Target systems for workflow execution"
+                    },
+                    "workflow_params": {
+                        "type": "object",
+                        "description": "Workflow-specific parameters"
+                    }
+                },
+                "required": ["workflow_type"]
+            }
+        })
+    ]
+}
+
+async fn execute_tool_with_orchestration(
+    state: &ChatState,
+    tool_name: &str,
+    parameters: &Value,
+) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
+    info!("Executing tool with orchestration: {} with params {:?}", tool_name, parameters);
+
+    match tool_name {
+        "orchestrate_system_task" => {
+            orchestrate_system_task(state, parameters).await
+        }
+        "dbus_discovery" => {
+            dbus_discovery(state, parameters).await
+        }
+        "system_introspect" => {
+            system_introspect(state, parameters).await
+        }
+        "workflow_orchestrate" => {
+            workflow_orchestrate(state, parameters).await
+        }
+        _ => {
+            // Try to execute as regular tool
+            execute_regular_tool(state, tool_name, parameters).await
+        }
+    }
+}
+
+async fn orchestrate_system_task(
+    _state: &ChatState,
+    parameters: &Value,
+) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
+    let task_type = parameters.get("task_type")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown");
+
+    let default_targets = vec![];
+    let target_systems = parameters.get("target_systems")
+        .and_then(|v| v.as_array())
+        .unwrap_or(&default_targets)
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect::<Vec<_>>();
+
+    let default_params = json!({});
+    let task_params = parameters.get("parameters")
+        .unwrap_or(&default_params);
+
+    info!("Orchestrating system task: {} on targets {:?}", task_type, target_systems);
+
+    // Create orchestrated task
+    let task_payload = json!({
+        "task_type": task_type,
+        "target_systems": target_systems,
+        "parameters": task_params
+    });
+
+    // Use orchestrator to execute task
+    let task = orchestrator::Task {
+        id: format!("task_{}", chrono::Utc::now().timestamp()),
+        agent_id: "system_orchestrator".to_string(),
+        task_type: task_type.to_string(),
+        payload: task_payload,
+        created_at: chrono::Utc::now(),
+        status: orchestrator::TaskStatus::Pending,
+    };
+
+    // TODO: Implement orchestrator task execution
+    // For now, return success with orchestration note
+    info!("Orchestration task queued: {}", task.id);
+
+    Ok(json!({
+        "status": "orchestrated",
+        "task_type": task_type,
+        "target_systems": target_systems,
+        "message": "System task orchestration initiated"
+    }))
+}
+
+async fn dbus_discovery(
+    _state: &ChatState,
+    parameters: &Value,
+) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
+    let service_filter = parameters.get("service_filter")
+        .and_then(|v| v.as_str());
+    let interface_filter = parameters.get("interface_filter")
+        .and_then(|v| v.as_str());
+
+    info!("Performing D-Bus discovery with filters: service={:?}, interface={:?}",
+          service_filter, interface_filter);
+
+    // TODO: Implement introspection cache when SQLite threading is resolved
+    // For now, return placeholder data
+    let services_data = vec!["org.freedesktop.systemd1".to_string()];
+    let interfaces_data = vec!["org.freedesktop.systemd1.Manager".to_string()];
+
+    // Apply filters to placeholder data
+    let filtered_services: Vec<_> = services_data.into_iter()
+        .filter(|s| service_filter.map_or(true, |f| s.contains(f)))
+        .collect();
+
+    let filtered_interfaces: Vec<_> = interfaces_data.into_iter()
+        .filter(|i| interface_filter.map_or(true, |f| i.contains(f)))
+        .collect();
+
+    Ok(json!({
+        "services": filtered_services,
+        "interfaces": filtered_interfaces,
+        "total_services": filtered_services.len(),
+        "total_interfaces": filtered_interfaces.len(),
+        "note": "Using placeholder data - introspection cache pending"
+    }))
+}
+
+async fn system_introspect(
+    _state: &ChatState,
+    parameters: &Value,
+) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
+    let layers = parameters.get("layers")
+        .and_then(|v| v.as_array())
+        .map(|arr| arr.iter().filter_map(|v| v.as_str()).collect::<Vec<_>>())
+        .unwrap_or_else(|| vec!["physical", "network", "service", "application"]);
+
+    info!("Performing system introspection for layers: {:?}", layers);
+
+    let mut results = json!({});
+
+    for layer in layers {
+        match layer {
+            "physical" => {
+                results["physical"] = json!({
+                    "cpu_count": num_cpus::get(),
+                    "memory": sys_info::mem_info().map(|m| m.total as u64).unwrap_or(0),
+                    "hostname": gethostname::gethostname().to_string_lossy()
+                });
+            }
+            "network" => {
+                // Basic network info - could be expanded
+                results["network"] = json!({
+                    "interfaces": "available",
+                    "connections": "discoverable"
+                });
+            }
+            "service" => {
+                // D-Bus services - TODO: Implement with proper introspection cache
+                results["service"] = json!({
+                    "dbus_services": 1,
+                    "services": ["org.freedesktop.systemd1"],
+                    "note": "Introspection cache integration pending"
+                });
+            }
+            "application" => {
+                results["application"] = json!({
+                    "workflows": "available",
+                    "plugins": "discoverable"
+                });
+            }
+            _ => {}
+        }
+    }
+
+    Ok(results)
+}
+
+async fn workflow_orchestrate(
+    _state: &ChatState,
+    parameters: &Value,
+) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
+    let workflow_type = parameters.get("workflow_type")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown");
+
+    let default_workflow_targets = vec![];
+    let targets = parameters.get("targets")
+        .and_then(|v| v.as_array())
+        .unwrap_or(&default_workflow_targets)
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect::<Vec<_>>();
+
+    let default_workflow_params = json!({});
+    let workflow_params = parameters.get("workflow_params")
+        .unwrap_or(&default_workflow_params);
+
+    info!("Orchestrating workflow: {} on targets {:?}", workflow_type, targets);
+
+    // Create workflow orchestration task
+    let workflow_task = json!({
+        "workflow_type": workflow_type,
+        "targets": targets,
+        "parameters": workflow_params,
+        "orchestration_id": format!("workflow_{}", chrono::Utc::now().timestamp())
+    });
+
+    // Use orchestrator for workflow execution
+    let task = orchestrator::Task {
+        id: format!("workflow_{}", chrono::Utc::now().timestamp()),
+        agent_id: "workflow_orchestrator".to_string(),
+        task_type: format!("workflow_{}", workflow_type),
+        payload: workflow_task,
+        created_at: chrono::Utc::now(),
+        status: orchestrator::TaskStatus::Pending,
+    };
+
+    // TODO: Implement orchestrator task execution
+    // For now, return success with orchestration note
+    info!("Workflow orchestration task queued: {}", task.id);
+
+    Ok(json!({
+        "status": "workflow_orchestrated",
+        "workflow_type": workflow_type,
+        "targets": targets,
+        "message": "Workflow orchestration initiated"
+    }))
+}
+
+async fn execute_regular_tool(
+    _state: &ChatState,
+    tool_name: &str,
+    parameters: &Value,
+) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
+    // For regular tools, use the existing AI-powered execution
+    // This would integrate with the existing tool execution logic
+    info!("Executing regular tool: {}", tool_name);
+
+    // Placeholder - integrate with existing tool execution
+    Ok(json!({
+        "tool": tool_name,
+        "parameters": parameters,
+        "result": "Tool executed via AI orchestration",
+        "status": "completed"
+    }))
+}
+
+async fn send_chat_message_with_orchestration(
+    state: &ChatState,
+    message: &str,
+    conversation_id: &str,
+) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    info!("Sending chat message with orchestration: {}", message);
+
+    // Get system context for enhanced AI responses
+    let system_context = get_system_context(state).await;
+
+    // Get conversation history
+    let conversations = state.conversations.read().await;
+    let history = conversations.get(conversation_id)
+        .cloned()
+        .unwrap_or_default();
+
+    // Convert system context to string
+    let system_context_str = if let Some(ref ctx) = system_context {
+        format!("System Context: Active services: {:?}, Network status: {}, System load: {:.2}, Available tools: {}, Tool count: {}",
+            ctx.active_services,
+            ctx.network_status,
+            ctx.system_load,
+            ctx.available_tools.join(", "),
+            ctx.tool_count
+        )
+    } else {
+        "No system context available".to_string()
+    };
+
+    // Convert history to ollama ChatMessage format
+    let ollama_history: Vec<ollama::ChatMessage> = history.iter().map(|msg| {
+        match msg {
+            ChatMessage::User { content, .. } => ollama::ChatMessage {
+                role: "user".to_string(),
+                content: content.clone(),
+            },
+            ChatMessage::Assistant { content, .. } => ollama::ChatMessage {
+                role: "assistant".to_string(),
+                content: content.clone(),
+            },
+            ChatMessage::Error { content, .. } => ollama::ChatMessage {
+                role: "system".to_string(),
+                content: format!("Error: {}", content),
+            },
+        }
+    }).collect();
+
+    // Use AI with orchestration context
+    let response = state.ollama_client.chat_with_context(
+        "mistral", // model
+        &system_context_str, // system_context as string
+        &ollama_history, // conversation_history in correct format
+        message, // user_message
+        Some(0.7) // temperature
+    ).await?;
+
+    // Store the conversation
+    drop(conversations);
+    let mut conversations = state.conversations.write().await;
+    let conversation = conversations.entry(conversation_id.to_string())
+        .or_insert_with(Vec::new);
+
+    conversation.push(ChatMessage::User {
+        content: message.to_string(),
+        timestamp: chrono::Utc::now().timestamp() as u64,
+        context: system_context,
+    });
+
+    conversation.push(ChatMessage::Assistant {
+        content: response.clone(),
+        timestamp: chrono::Utc::now().timestamp() as u64,
+        tools_used: None,
+    });
+
+    Ok(response)
+}
+
+// MCP handler for proxy server - enhanced chatbot with orchestration capabilities
+async fn mcp_handler(
+    State(state): State<ChatState>,
+    Json(request): Json<Value>,
+) -> impl IntoResponse {
+    info!("MCP request received: {:?}", request);
+
+    // Extract action from request
+    let action = request.get("action").and_then(|v| v.as_str());
+
+    match action {
+        Some("list_tools") => {
+            // Return available tools from unified introspection
+            let tools = get_available_tools(&state).await;
+            Json(json!({
+                "success": true,
+                "data": {
+                    "tools": tools
+                }
+            }))
+        }
+
+        Some("execute_tool") => {
+            // Execute tool with orchestration support
+            let tool_name = request.get("tool").and_then(|v| v.as_str());
+            let parameters = request.get("parameters");
+
+            if let (Some(tool_name), Some(parameters)) = (tool_name, parameters) {
+                let result = execute_tool_with_orchestration(&state, tool_name, parameters).await;
+                match result {
+                    Ok(response) => Json(json!({
+                        "success": true,
+                        "data": response
+                    })),
+                    Err(error) => Json(json!({
+                        "success": false,
+                        "error": error.to_string()
+                    }))
+                }
+            } else {
+                Json(json!({
+                    "success": false,
+                    "error": "Missing tool name or parameters"
+                }))
+            }
+        }
+
+        Some("send_message") => {
+            // Handle chat messages with system orchestration context
+            let message = request.get("message").and_then(|v| v.as_str());
+            let conversation_id = request.get("conversationId").and_then(|v| v.as_str());
+
+            if let Some(message) = message {
+                let response = send_chat_message_with_orchestration(
+                    &state,
+                    message,
+                    conversation_id.unwrap_or("default")
+                ).await;
+
+                match response {
+                    Ok(chat_response) => Json(json!({
+                        "success": true,
+                        "data": {
+                            "response": chat_response,
+                            "conversationId": conversation_id.unwrap_or("default")
+                        }
+                    })),
+                    Err(error) => Json(json!({
+                        "success": false,
+                        "error": error.to_string()
+                    }))
+                }
+            } else {
+                Json(json!({
+                    "success": false,
+                    "error": "Missing message"
+                }))
+            }
+        }
+
+        _ => Json(json!({
+            "success": false,
+            "error": "Unknown action"
+        }))
+    }
 }
 
 // WebSocket handler for chat

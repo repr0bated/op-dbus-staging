@@ -57,6 +57,15 @@
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-postgres"],
       "disabled": true
+    },
+    "mcpo": {
+      "command": "/home/jeremy/op-dbus-staging/target/debug/dbus-agent-network",
+      "args": ["--mcp"],
+      "env": {
+        "RUST_LOG": "info",
+        "AGENT_PERSONA": "network-engineer"
+      },
+      "description": "Network Engineer MCP Server (mcpo) - Expert network engineering with comprehensive cloud networking, security, and performance optimization capabilities"
     }
   }
 }

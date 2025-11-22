@@ -1,0 +1,288 @@
+# Backend Architect's Kubernetes Deployment for MCPO MCP Server
+# Production-ready with horizontal scaling, health checks, and security
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mcpo-system
+  labels:
+    name: mcpo-system
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mcpo-config
+  namespace: mcpo-system
+data:
+  MCP_PORT: "8000"
+  BIND_IP: "0.0.0.0"
+  NODE_ENV: "production"
+  LOG_LEVEL: "info"
+  METRICS_ENABLED: "true"
+  TRUST_PROXY: "true"
+  RATE_LIMIT_WINDOW_MS: "900000"
+  RATE_LIMIT_MAX_REQUESTS: "100"
+  CIRCUIT_BREAKER_FAILURE_THRESHOLD: "5"
+  CIRCUIT_BREAKER_RESET_TIMEOUT: "60000"
+  CHAT_SERVER_URL: "http://chat-server.mcpo-system.svc.cluster.local:8080"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mcpo-secrets
+  namespace: mcpo-system
+type: Opaque
+stringData:
+  MCP_API_KEYS: "prod-key-1,prod-key-2,prod-key-3"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcpo-mcp-server
+  namespace: mcpo-system
+  labels:
+    app: mcpo-mcp-server
+    version: v1
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: mcpo-mcp-server
+  template:
+    metadata:
+      labels:
+        app: mcpo-mcp-server
+        version: v1
+    spec:
+      containers:
+      - name: mcpo-server
+        image: your-registry/mcpo-mcp-server:latest
+        ports:
+        - containerPort: 8000
+          name: http
+          protocol: TCP
+        env:
+        - name: MCP_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: mcpo-config
+              key: MCP_PORT
+        - name: BIND_IP
+          valueFrom:
+            configMapKeyRef:
+              name: mcpo-config
+              key: BIND_IP
+        - name: NODE_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: mcpo-config
+              key: NODE_ENV
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: mcpo-config
+              key: LOG_LEVEL
+        - name: METRICS_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: mcpo-config
+              key: METRICS_ENABLED
+        - name: TRUST_PROXY
+          valueFrom:
+            configMapKeyRef:
+              name: mcpo-config
+              key: TRUST_PROXY
+        - name: RATE_LIMIT_WINDOW_MS
+          valueFrom:
+            configMapKeyRef:
+              name: mcpo-config
+              key: RATE_LIMIT_WINDOW_MS
+        - name: RATE_LIMIT_MAX_REQUESTS
+          valueFrom:
+            configMapKeyRef:
+              name: mcpo-config
+              key: RATE_LIMIT_MAX_REQUESTS
+        - name: CIRCUIT_BREAKER_FAILURE_THRESHOLD
+          valueFrom:
+            configMapKeyRef:
+              name: mcpo-config
+              key: CIRCUIT_BREAKER_FAILURE_THRESHOLD
+        - name: CIRCUIT_BREAKER_RESET_TIMEOUT
+          valueFrom:
+            configMapKeyRef:
+              name: mcpo-config
+              key: CIRCUIT_BREAKER_RESET_TIMEOUT
+        - name: CHAT_SERVER_URL
+          valueFrom:
+            configMapKeyRef:
+              name: mcpo-config
+              key: CHAT_SERVER_URL
+        - name: MCP_API_KEYS
+          valueFrom:
+            secretKeyRef:
+              name: mcpo-secrets
+              key: MCP_API_KEYS
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 250m
+            memory: 256Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        volumeMounts:
+        - name: logs
+          mountPath: /app/logs
+      volumes:
+      - name: logs
+        emptyDir: {}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        readOnlyRootFilesystem: true
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+      nodeSelector:
+        kubernetes.io/os: linux
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcpo-mcp-service
+  namespace: mcpo-system
+  labels:
+    app: mcpo-mcp-server
+spec:
+  selector:
+    app: mcpo-mcp-server
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8000
+    protocol: TCP
+  - name: metrics
+    port: 9090
+    targetPort: 9090
+    protocol: TCP
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mcpo-mcp-ingress
+  namespace: mcpo-system
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - mcpo-api.yourdomain.com
+    secretName: mcpo-tls
+  rules:
+  - host: mcpo-api.yourdomain.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: mcpo-mcp-service
+            port:
+              number: 80
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mcpo-service-account
+  namespace: mcpo-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: mcpo-cluster-role
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services", "endpoints"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: mcpo-cluster-role-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: mcpo-cluster-role
+subjects:
+- kind: ServiceAccount
+  name: mcpo-service-account
+  namespace: mcpo-system
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: mcpo-pdb
+  namespace: mcpo-system
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: mcpo-mcp-server
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: mcpo-service-monitor
+  namespace: mcpo-system
+  labels:
+    team: backend
+spec:
+  selector:
+    matchLabels:
+      app: mcpo-mcp-server
+  endpoints:
+  - port: metrics
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 10s
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mcpo-logs-pvc
+  namespace: mcpo-system
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+

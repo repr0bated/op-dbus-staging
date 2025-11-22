@@ -49,3 +49,4 @@
 - Many actions require root and sockets: `/var/run/dbus/system_bus_socket`, `/var/run/openvswitch/db.sock`.
 - Always validate with `op-dbus diff /etc/op-dbus/state.json` before `apply`.
 - Use a throwaway host/VM for new network/systemd behaviors; avoid enabling the service until manual tests succeed.
+no docker or pidman containers

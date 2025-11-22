@@ -3,7 +3,8 @@ const cors = require('cors');
 const axios = require('axios');
 const path = require('path');
 const WebSocket = require('ws');
-const { createServer } = require('http');
+const { createServer } = require('https');
+const fs = require('fs');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 // Rate limiting for Ollama API calls
@@ -2692,8 +2693,12 @@ app.post('/api/switch-model', (req, res) => {
     }
 });
 
-// Create HTTP server
-const server = createServer(app);
+// Create HTTPS server
+const sslOptions = {
+    key: fs.readFileSync('/home/jeremy/certs/chat_key.pem'),
+    cert: fs.readFileSync('/home/jeremy/certs/chat_cert.pem')
+};
+const server = createServer(sslOptions, app);
 
 // WebSocket setup
 const wss = new WebSocket.Server({ server });
@@ -2811,7 +2816,7 @@ server.listen(PORT, BIND_IP, () => {
     console.log('║         AI Chat Server         ║');
     console.log('╚══════════════════════════════════════╝');
     console.log(`🌐 Server IP: ${serverIP}:${PORT}`);
-    console.log(`🌐 Local access: http://localhost:${PORT}`);
+    console.log(`🌐 Local access: https://localhost:${PORT}`);
     const currentModel = AI_PROVIDER === 'cursor-agent' ? 'CLI (via MCP)' : (AI_PROVIDER === 'gemini' ? GEMINI_MODEL : (AI_PROVIDER === 'grok' ? GROK_MODEL : (AI_PROVIDER === 'huggingface' ? HF_MODEL : OLLAMA_MODEL)));
     console.log(`🤖 AI Provider: ${AI_PROVIDER}`);
     console.log(`🤖 AI Model: ${currentModel}`);

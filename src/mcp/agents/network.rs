@@ -1,7 +1,9 @@
 use serde::Deserialize;
+use serde_json::{json, Value};
 use std::process::Command;
 use uuid::Uuid;
 use zbus::{connection::Builder, interface, object_server::SignalEmitter};
+use std::io::{self, BufRead, Write};
 
 // Security configuration
 const FORBIDDEN_CHARS: &[char] = &[
@@ -10,7 +12,7 @@ const FORBIDDEN_CHARS: &[char] = &[
 const MAX_TARGET_LENGTH: usize = 256;
 const MAX_COUNT: u32 = 20;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, serde::Serialize)]
 struct NetworkTask {
     #[serde(rename = "type")]
     task_type: String,
@@ -23,6 +25,217 @@ struct NetworkTask {
 
 struct NetworkAgent {
     agent_id: String,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+struct McpRequest {
+    jsonrpc: String,
+    id: Option<Value>,
+    method: String,
+    params: Option<Value>,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+struct McpResponse {
+    jsonrpc: String,
+    id: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    result: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<McpError>,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+struct McpError {
+    code: i32,
+    message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    data: Option<Value>,
+}
+
+struct NetworkMcpServer {
+    agent: NetworkAgent,
+}
+
+impl NetworkMcpServer {
+    fn new(agent_id: String) -> Self {
+        Self {
+            agent: NetworkAgent { agent_id },
+        }
+    }
+
+    fn get_network_tools() -> Vec<Value> {
+        vec![
+            json!({
+                "name": "network_interfaces",
+                "description": "List all network interfaces with their configuration and status",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                }
+            }),
+            json!({
+                "name": "network_ping",
+                "description": "Ping a target host to test connectivity",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "target": {
+                            "type": "string",
+                            "description": "Target host to ping (IP address or hostname)"
+                        },
+                        "count": {
+                            "type": "number",
+                            "description": "Number of ping packets to send (default: 4, max: 20)",
+                            "default": 4,
+                            "maximum": 20
+                        }
+                    },
+                    "required": ["target"]
+                }
+            }),
+            json!({
+                "name": "network_route_table",
+                "description": "Display the current routing table",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                }
+            }),
+            json!({
+                "name": "network_connections",
+                "description": "Show active network connections",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                }
+            }),
+            json!({
+                "name": "network_traceroute",
+                "description": "Perform traceroute to a target host",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "target": {
+                            "type": "string",
+                            "description": "Target host for traceroute (IP address or hostname)"
+                        }
+                    },
+                    "required": ["target"]
+                }
+            })
+        ]
+    }
+
+    async fn handle_mcp_request(&self, request: McpRequest) -> Result<McpResponse, Box<dyn std::error::Error>> {
+        let response = match request.method.as_str() {
+            "initialize" => McpResponse {
+                jsonrpc: "2.0".to_string(),
+                id: request.id,
+                result: Some(json!({
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": {
+                        "tools": {
+                            "listChanged": false
+                        }
+                    },
+                    "serverInfo": {
+                        "name": "Network Engineer MCP Server (mcpo)",
+                        "version": "1.0.0"
+                    }
+                })),
+                error: None,
+            },
+            "tools/list" => McpResponse {
+                jsonrpc: "2.0".to_string(),
+                id: request.id,
+                result: Some(json!({
+                    "tools": Self::get_network_tools()
+                })),
+                error: None,
+            },
+            "tools/call" => {
+                let params = request.params.unwrap_or(json!({}));
+                let tool_name = params.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                let default_args = json!({});
+                let arguments = params.get("arguments").unwrap_or(&default_args);
+
+                match self.call_tool(tool_name, arguments).await {
+                    Ok(result) => McpResponse {
+                        jsonrpc: "2.0".to_string(),
+                        id: request.id,
+                        result: Some(json!({ "content": result })),
+                        error: None,
+                    },
+                    Err(e) => McpResponse {
+                        jsonrpc: "2.0".to_string(),
+                        id: request.id,
+                        result: None,
+                        error: Some(McpError {
+                            code: -32000,
+                            message: format!("Tool execution failed: {}", e),
+                            data: None,
+                        }),
+                    },
+                }
+            }
+            _ => McpResponse {
+                jsonrpc: "2.0".to_string(),
+                id: request.id,
+                result: None,
+                error: Some(McpError {
+                    code: -32601,
+                    message: "Method not found".to_string(),
+                    data: None,
+                }),
+            },
+        };
+
+        Ok(response)
+    }
+
+    async fn call_tool(&self, tool_name: &str, arguments: &Value) -> Result<Vec<Value>, Box<dyn std::error::Error>> {
+        let task = match tool_name {
+            "network_interfaces" => NetworkTask {
+                task_type: "network".to_string(),
+                operation: "interfaces".to_string(),
+                target: None,
+                count: None,
+            },
+            "network_ping" => NetworkTask {
+                task_type: "network".to_string(),
+                operation: "ping".to_string(),
+                target: arguments.get("target").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                count: arguments.get("count").and_then(|v| v.as_u64()).map(|n| n as u32),
+            },
+            "network_route_table" => NetworkTask {
+                task_type: "network".to_string(),
+                operation: "route".to_string(),
+                target: None,
+                count: None,
+            },
+            "network_connections" => NetworkTask {
+                task_type: "network".to_string(),
+                operation: "connections".to_string(),
+                target: None,
+                count: None,
+            },
+            "network_traceroute" => NetworkTask {
+                task_type: "network".to_string(),
+                operation: "traceroute".to_string(),
+                target: arguments.get("target").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                count: None,
+            },
+            _ => return Err(format!("Unknown tool: {}", tool_name).into()),
+        };
+
+        let task_json = serde_json::to_string(&task)?;
+        let result = self.agent.execute(task_json).await?;
+        Ok(vec![json!({ "type": "text", "text": result })])
+    }
 }
 
 #[interface(name = "org.dbusmcp.Agent.Network")]
@@ -191,6 +404,80 @@ impl NetworkAgent {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
 
+    // Check if we should run as MCP server
+    if args.len() > 1 && args[1] == "--mcp" {
+        run_mcp_server().await
+    } else {
+        run_dbus_service(args).await
+    }
+}
+
+async fn run_mcp_server() -> Result<(), Box<dyn std::error::Error>> {
+    let agent_id = "network-engineer".to_string();
+    println!("Starting Network Engineer MCP Server (mcpo): {}", agent_id);
+
+    let server = NetworkMcpServer::new(agent_id.clone());
+    println!("Network Engineer MCP Server '{}' ready", agent_id);
+    println!("Serving network engineering tools via MCP protocol");
+    println!("Available tools: network_interfaces, network_ping, network_route_table, network_connections, network_traceroute");
+
+    // MCP server mode - read from stdin, write to stdout
+    let stdin = io::stdin();
+    let mut stdout = io::stdout();
+
+    for line in stdin.lines() {
+        let line = line?;
+        if line.trim().is_empty() {
+            continue;
+        }
+
+        match serde_json::from_str::<McpRequest>(&line) {
+            Ok(request) => {
+                match server.handle_mcp_request(request).await {
+                    Ok(response) => {
+                        let response_json = serde_json::to_string(&response)?;
+                        writeln!(stdout, "{}", response_json)?;
+                        stdout.flush()?;
+                    }
+                    Err(e) => {
+                        let error_response = McpResponse {
+                            jsonrpc: "2.0".to_string(),
+                            id: None,
+                            result: None,
+                            error: Some(McpError {
+                                code: -32000,
+                                message: format!("Internal error: {}", e),
+                                data: None,
+                            }),
+                        };
+                        let error_json = serde_json::to_string(&error_response)?;
+                        writeln!(stdout, "{}", error_json)?;
+                        stdout.flush()?;
+                    }
+                }
+            }
+            Err(e) => {
+                let error_response = McpResponse {
+                    jsonrpc: "2.0".to_string(),
+                    id: None,
+                    result: None,
+                    error: Some(McpError {
+                        code: -32700,
+                        message: format!("Parse error: {}", e),
+                        data: None,
+                    }),
+                };
+                let error_json = serde_json::to_string(&error_response)?;
+                writeln!(stdout, "{}", error_json)?;
+                stdout.flush()?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+async fn run_dbus_service(args: Vec<String>) -> Result<(), Box<dyn std::error::Error>> {
     let agent_id = if args.len() > 1 {
         args[1].clone()
     } else {
