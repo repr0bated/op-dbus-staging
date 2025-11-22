@@ -1,0 +1,161 @@
+version: '3.8'
+
+# OVS Privacy Network Container Stack
+# Containers are connected to ovsbr0 with service-based routing and privacy obfuscation
+
+networks:
+  ovs-privacy-net:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: ovsbr0
+    ipam:
+      config:
+        - subnet: 172.16.0.0/16
+          gateway: 172.16.0.1
+
+services:
+  # Service A - HTTP Service (Port 80)
+  # Routes through privacy obfuscation layer
+  service-http:
+    image: nginx:alpine
+    container_name: privacy-service-http
+    networks:
+      ovs-privacy-net:
+        ipv4_address: 172.16.0.10
+    labels:
+      ovs.service_id: "1"
+      ovs.routing: "privacy"
+      ovs.obfuscation: "full"
+    volumes:
+      - ./config/nginx:/etc/nginx/conf.d:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Service B - HTTPS Service (Port 443)
+  # Routes through privacy obfuscation layer
+  service-https:
+    image: nginx:alpine
+    container_name: privacy-service-https
+    networks:
+      ovs-privacy-net:
+        ipv4_address: 172.16.0.20
+    labels:
+      ovs.service_id: "2"
+      ovs.routing: "privacy"
+      ovs.obfuscation: "full"
+    volumes:
+      - ./config/nginx-ssl:/etc/nginx/conf.d:ro
+      - ./certs:/etc/nginx/certs:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "--no-check-certificate", "https://localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Service C - Custom Service (Port 8080)
+  # Routes through Netmaker VPN
+  service-custom:
+    image: redis:alpine
+    container_name: privacy-service-custom
+    networks:
+      ovs-privacy-net:
+        ipv4_address: 172.16.0.30
+    labels:
+      ovs.service_id: "3"
+      ovs.routing: "netmaker"
+      ovs.obfuscation: "partial"
+    command: redis-server --port 8080 --bind 0.0.0.0
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "8080", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Management Service - Direct routing
+  service-mgmt:
+    image: busybox
+    container_name: privacy-service-mgmt
+    networks:
+      ovs-privacy-net:
+        ipv4_address: 172.16.0.100
+    labels:
+      ovs.service_id: "0"
+      ovs.routing: "direct"
+      ovs.obfuscation: "none"
+    command: sh -c "while true; do sleep 3600; done"
+    restart: unless-stopped
+
+  # OpenFlow Controller
+  # Manages privacy obfuscation and service routing
+  openflow-controller:
+    build:
+      context: .
+      dockerfile: Dockerfile.controller
+    container_name: privacy-openflow-controller
+    network_mode: host
+    volumes:
+      - ./scripts/privacy-obfuscation-controller.py:/app/controller.py:ro
+      - ./logs:/var/log/controller
+    command: python3 /app/controller.py
+    restart: unless-stopped
+    depends_on:
+      - service-http
+      - service-https
+      - service-custom
+
+  # Netmaker Client (optional)
+  # Provides encrypted mesh VPN overlay
+  netmaker-client:
+    image: gravitl/netmaker:latest
+    container_name: privacy-netmaker-client
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    sysctls:
+      - net.ipv4.ip_forward=1
+      - net.ipv6.conf.all.disable_ipv6=0
+    volumes:
+      - /lib/modules:/lib/modules:ro
+      - netmaker-data:/etc/netclient
+    environment:
+      - TOKEN=${NETMAKER_TOKEN}
+      - NETWORK=privacy-mesh
+    restart: unless-stopped
+    profiles:
+      - netmaker
+
+  # Monitoring - Prometheus exporter for OVS
+  ovs-exporter:
+    image: prom/node-exporter:latest
+    container_name: privacy-ovs-exporter
+    networks:
+      ovs-privacy-net:
+        ipv4_address: 172.16.0.200
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    restart: unless-stopped
+    profiles:
+      - monitoring
+
+volumes:
+  netmaker-data:
+    driver: local
+
+# Usage:
+# 1. Setup OVS bridge first: ./scripts/setup-ovs-privacy-network.sh
+# 2. Start services: docker-compose -f docker-compose-ovs-privacy.yml up -d
+# 3. Start with Netmaker: docker-compose -f docker-compose-ovs-privacy.yml --profile netmaker up -d
+# 4. Start with monitoring: docker-compose -f docker-compose-ovs-privacy.yml --profile monitoring up -d
+# 5. View logs: docker-compose -f docker-compose-ovs-privacy.yml logs -f openflow-controller
