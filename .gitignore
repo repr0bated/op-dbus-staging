@@ -1,2 +1,58 @@
-/target
-.vscode
+# Secrets and credentials
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.p8
+*.p12
+*.pfx
+
+# API Keys and tokens (NEVER commit these!)
+*_api_key*
+*_api_secret*
+*_token*
+*_password*
+*_secret*
+HF_TOKEN
+OLLAMA_API_KEY
+GEMINI_API_KEY
+GROK_API_KEY
+
+# Systemd overrides (contains secrets)
+override.conf
+/etc/systemd/system/*/override.conf
+
+# IDE and build artifacts
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+target/
+dist/
+build/
+
+# Node modules
+node_modules/
+package-lock.json
+
+# Python
+__pycache__/
+*.pyc
+.Python
+venv/
+env/
+
+# Cargo lock for binaries (but not libraries)
+Cargo.lock
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+.cache/
