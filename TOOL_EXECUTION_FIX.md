@@ -57,7 +57,7 @@ This requires code changes to chat-server.js around line 926-1000.
 
 Your bashrc should have:
 ```bash
-export OLLAMA_API_KEY="YOUR_OLLAMA_API_KEY"
+export OLLAMA_API_KEY="your-ollama-api-key-here"
 ```
 
 To start server:
