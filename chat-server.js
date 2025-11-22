@@ -6,6 +6,73 @@ const WebSocket = require('ws');
 const { createServer } = require('https');
 const fs = require('fs');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const os = require('os');
+
+// Load environment variables from .env file and .bashrc
+// Priority: process.env (shell environment) > .env file > .bashrc
+function loadEnvironmentVariables() {
+    const homeDir = os.homedir();
+    const envFiles = [
+        { path: path.join(process.cwd(), '.env'), name: 'project .env' },
+        { path: path.join(homeDir, '.env'), name: 'home .env' },
+        { path: path.join(homeDir, '.bashrc'), name: '.bashrc' }
+    ];
+
+    const loadedFrom = [];
+    
+    envFiles.forEach(({ path: filePath, name }) => {
+        if (fs.existsSync(filePath)) {
+            try {
+                const content = fs.readFileSync(filePath, 'utf8');
+                const lines = content.split('\n');
+                let loadedCount = 0;
+                
+                lines.forEach(line => {
+                    line = line.trim();
+                    // Skip comments and empty lines
+                    if (!line || line.startsWith('#')) return;
+                    
+                    // Handle export statements from .bashrc
+                    if (line.startsWith('export ')) {
+                        line = line.replace(/^export\s+/, '');
+                    }
+                    
+                    // Parse KEY=VALUE or KEY="VALUE" or KEY='VALUE'
+                    const match = line.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+)$/);
+                    if (match) {
+                        const key = match[1];
+                        let value = match[2];
+                        
+                        // Remove quotes if present
+                        if ((value.startsWith('"') && value.endsWith('"')) ||
+                            (value.startsWith("'") && value.endsWith("'"))) {
+                            value = value.slice(1, -1);
+                        }
+                        
+                        // Only set if not already in process.env (environment takes precedence)
+                        if (!process.env[key]) {
+                            process.env[key] = value;
+                            loadedCount++;
+                        }
+                    }
+                });
+                
+                if (loadedCount > 0) {
+                    loadedFrom.push(`${name} (${loadedCount} vars)`);
+                }
+            } catch (error) {
+                console.warn(`⚠️  Warning: Could not load environment from ${filePath}:`, error.message);
+            }
+        }
+    });
+    
+    if (loadedFrom.length > 0) {
+        console.log(`📋 Loaded environment variables from: ${loadedFrom.join(', ')}`);
+    }
+}
+
+// Load environment variables before using them
+loadEnvironmentVariables();
 
 // Rate limiting for Ollama API calls
 let lastApiCall = 0;
@@ -18,7 +85,9 @@ let lastSuccessfulCall = 0;
 const app = express();
 const PORT = 8080;
 const BIND_IP = '0.0.0.0'; // Listen on all interfaces
-// AI API Configuration
+
+// AI API Configuration - Load from environment variables (including .bashrc and .env)
+// Priority: process.env (already set) > .env file > .bashrc
 let AI_PROVIDER = process.env.AI_PROVIDER || 'ollama'; // 'ollama', 'grok', 'gemini', 'huggingface', or 'cursor-agent'
 const GROK_API_KEY = process.env.GROK_API_KEY || '';
 const GROK_MODEL = process.env.GROK_MODEL || 'grok-beta';
@@ -72,12 +141,21 @@ if (GEMINI_API_KEY) {
     genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
 }
 
+// Ollama API Key - Load from environment variables (including .bashrc and .env)
 const OLLAMA_API_KEY = process.env.OLLAMA_API_KEY || '';
 const OLLAMA_MODEL = process.env.OLLAMA_DEFAULT_MODEL || process.env.OLLAMA_MODEL || 'llama2';
 
 // Ollama Configuration
 const OLLAMA_USE_CLOUD = process.env.OLLAMA_USE_CLOUD === 'true' || process.env.OLLAMA_API_KEY;
 const OLLAMA_BASE_URL = OLLAMA_USE_CLOUD ? 'https://ollama.com' : 'http://localhost:11434';
+
+// Log API key status (without exposing keys)
+console.log('🔑 API Key Configuration:');
+console.log(`   AI Provider: ${AI_PROVIDER}`);
+console.log(`   Ollama API Key: ${OLLAMA_API_KEY ? '✅ Set (' + OLLAMA_API_KEY.substring(0, 8) + '...)' : '❌ Not set'}`);
+console.log(`   Gemini API Key: ${GEMINI_API_KEY ? '✅ Set (' + GEMINI_API_KEY.substring(0, 8) + '...)' : '❌ Not set'}`);
+console.log(`   HuggingFace Token: ${HF_TOKEN ? '✅ Set (' + HF_TOKEN.substring(0, 8) + '...)' : '❌ Not set'}`);
+console.log(`   Grok API Key: ${GROK_API_KEY ? '✅ Set (' + GROK_API_KEY.substring(0, 8) + '...)' : '❌ Not set'}`);
 
 
 // Forbidden Commands List - ONLY OVS/OpenFlow and network configuration commands

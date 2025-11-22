@@ -46,7 +46,7 @@ mod orchestrator;
 #[path = "introspection_cache.rs"]
 mod introspection_cache;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use axum::{
     extract::ws::{Message, WebSocket, WebSocketUpgrade},
     extract::State,
@@ -60,12 +60,182 @@ use serde_json::{json, Value};
 use std::{collections::HashMap, net::SocketAddr, path::PathBuf, sync::Arc};
 use tokio::sync::RwLock;
 use tower_http::{
+    cors::CorsLayer,
     services::ServeDir,
     trace::TraceLayer,
 };
 use tracing::{error, info};
 
 use ollama::OllamaClient;
+
+/// Tool: discover_system - Full system introspection
+async fn register_discover_system() -> Result<()> {
+    // This would register with a tool registry, but for chat we just use it directly
+    Ok(())
+}
+
+/// Tool: detect_ssl_certificates - Detect SSL/TLS certificates via introspection
+async fn register_detect_ssl_certificates() -> Result<()> {
+    // This would register with a tool registry, but for chat we just use it directly
+    Ok(())
+}
+
+/// Server configuration detected via introspection
+struct ServerConfig {
+    http_port: u16,
+    https_port: u16,
+    bind_host: String,
+    public_host: String,
+    https_enabled: bool,
+    ssl_cert_path: String,
+    ssl_key_path: String,
+}
+
+/// Introspect system to detect server configuration
+async fn introspect_server_config() -> ServerConfig {
+    // Get hostname via introspection
+    let hostname = gethostname::gethostname().to_string_lossy().to_string();
+
+    // Try to get FQDN from /etc/hostname or /etc/hosts
+    let public_host = detect_fqdn(&hostname).unwrap_or_else(|| {
+        std::env::var("PUBLIC_HOST").unwrap_or_else(|_| hostname.clone())
+    });
+
+    // Detect Let's Encrypt certificates for the hostname/domain
+    let (ssl_cert_path, ssl_key_path, https_enabled) = detect_ssl_certificates(&public_host);
+
+    ServerConfig {
+        http_port: std::env::var("HTTP_PORT")
+            .unwrap_or_else(|_| "8080".to_string())
+            .parse::<u16>()
+            .unwrap_or(8080),
+        https_port: std::env::var("HTTPS_PORT")
+            .unwrap_or_else(|_| "8443".to_string())
+            .parse::<u16>()
+            .unwrap_or(8443),
+        bind_host: std::env::var("BIND_HOST").unwrap_or_else(|_| "0.0.0.0".to_string()),
+        public_host,
+        https_enabled: https_enabled || std::env::var("HTTPS_ENABLED").unwrap_or_else(|_| "false".to_string()) == "true",
+        ssl_cert_path: std::env::var("SSL_CERT_PATH").unwrap_or(ssl_cert_path),
+        ssl_key_path: std::env::var("SSL_KEY_PATH").unwrap_or(ssl_key_path),
+    }
+}
+
+/// Detect FQDN from system files
+fn detect_fqdn(hostname: &str) -> Option<String> {
+    // Try /etc/hostname first
+    if let Ok(contents) = std::fs::read_to_string("/etc/hostname") {
+        let fqdn = contents.trim();
+        if !fqdn.is_empty() && fqdn.contains('.') {
+            return Some(fqdn.to_string());
+        }
+    }
+
+    // Try /etc/hosts for FQDN
+    if let Ok(contents) = std::fs::read_to_string("/etc/hosts") {
+        for line in contents.lines() {
+            if line.contains(hostname) && line.contains('.') {
+                // Extract domain from line like "127.0.0.1 hostname.domain.com hostname"
+                if let Some(domain_part) = line.split_whitespace().find(|s| s.contains('.') && s.contains(hostname)) {
+                    return Some(domain_part.to_string());
+                }
+            }
+        }
+    }
+
+    // Try hostname -f command
+    if let Ok(output) = std::process::Command::new("hostname")
+        .arg("-f")
+        .output()
+    {
+        let fqdn = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if !fqdn.is_empty() && fqdn.contains('.') {
+            return Some(fqdn);
+        }
+    }
+
+    None
+}
+
+/// Detect SSL certificates via introspection (Cloudflare, Let's Encrypt, or self-signed)
+fn detect_ssl_certificates(domain: &str) -> (String, String, bool) {
+    // Extract domain from FQDN (remove subdomain if needed, or use as-is)
+    let cert_domain = if domain.contains('.') {
+        domain.to_string()
+    } else {
+        format!("{}.local", domain)
+    };
+
+    // Try Cloudflare certificates first (common locations)
+    let cloudflare_paths: Vec<(&str, &str, &str)> = vec![
+        // Standard Cloudflare origin certificate locations
+        ("/etc/ssl/cloudflare", "origin.pem", "origin.key"),
+        ("/etc/cloudflare", "cert.pem", "key.pem"),
+        ("/etc/ssl/certs/cloudflare", "origin.pem", "origin.key"),
+        // Common alternative names
+        ("/etc/ssl/cloudflare", "cert.pem", "key.pem"),
+        ("/etc/ssl/cloudflare", "fullchain.pem", "privkey.pem"),
+    ];
+
+    // Check domain-specific paths separately
+    let domain_paths = vec![
+        format!("/etc/ssl/cloudflare/{}", cert_domain),
+        format!("/etc/cloudflare/{}", cert_domain),
+    ];
+
+    for domain_path in &domain_paths {
+        if std::path::Path::new(&format!("{}/cert.pem", domain_path)).exists() &&
+           std::path::Path::new(&format!("{}/key.pem", domain_path)).exists() {
+            info!("🔍 Introspected Cloudflare certificates for {}", cert_domain);
+            return (format!("{}/cert.pem", domain_path), format!("{}/key.pem", domain_path), true);
+        }
+    }
+
+    for (base_path, cert_file, key_file) in cloudflare_paths {
+        let cert_path = format!("{}/{}", base_path, cert_file);
+        let key_path = format!("{}/{}", base_path, key_file);
+
+        if std::path::Path::new(&cert_path).exists() && std::path::Path::new(&key_path).exists() {
+            info!("🔍 Introspected Cloudflare certificates: {} / {}", cert_path, key_path);
+            return (cert_path, key_path, true);
+        }
+    }
+
+    // Try Let's Encrypt paths
+    let letsencrypt_base = "/etc/letsencrypt/live";
+    let cert_path = format!("{}/{}/fullchain.pem", letsencrypt_base, cert_domain);
+    let key_path = format!("{}/{}/privkey.pem", letsencrypt_base, cert_domain);
+
+    if std::path::Path::new(&cert_path).exists() && std::path::Path::new(&key_path).exists() {
+        info!("🔍 Introspected Let's Encrypt certificates for {}", cert_domain);
+        return (cert_path, key_path, true);
+    }
+
+    // Try alternative Let's Encrypt path (with subdomain)
+    let domain_parts: Vec<&str> = cert_domain.split('.').skip(1).collect();
+    if !domain_parts.is_empty() {
+        let main_domain = domain_parts.join(".");
+        let alt_cert_path = format!("{}/{}/fullchain.pem", letsencrypt_base, main_domain);
+        let alt_key_path = format!("{}/{}/privkey.pem", letsencrypt_base, main_domain);
+
+        if std::path::Path::new(&alt_cert_path).exists() && std::path::Path::new(&alt_key_path).exists() {
+            info!("🔍 Introspected Let's Encrypt certificates for {}", main_domain);
+            return (alt_cert_path, alt_key_path, true);
+        }
+    }
+
+    // Check for self-signed certificates in common locations
+    let self_signed_cert = "./ssl/certificate.crt";
+    let self_signed_key = "./ssl/private.key";
+
+    if std::path::Path::new(self_signed_cert).exists() && std::path::Path::new(self_signed_key).exists() {
+        info!("🔍 Introspected self-signed certificates");
+        return (self_signed_cert.to_string(), self_signed_key.to_string(), true);
+    }
+
+    // No certificates found via introspection
+    (self_signed_cert.to_string(), self_signed_key.to_string(), false)
+}
 
 // Chat message structure with unified system context
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -189,17 +359,94 @@ async fn main() -> Result<()> {
         .route("/ws", get(websocket_handler))
         // Serve web directory - handles all static files including HTML, CSS, JS
         .nest_service("/", ServeDir::new(&web_dir))
-        // Add tracing
+        // Add CORS and tracing
+        .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http())
         .with_state(chat_state);
 
-    // Start the server
-    let addr = SocketAddr::from(([0, 0, 0, 0], 8080));
-    info!("AI Chat Server listening on http://{}", addr);
-    info!("Open http://localhost:8080 in your browser to chat with AI");
+    // Start the server (HTTP and optionally HTTPS)
+    // Use introspection to detect configuration, fallback to environment variables
+    let config = introspect_server_config().await;
 
-    let listener = tokio::net::TcpListener::bind(addr).await?;
+    let http_port = config.http_port;
+    let https_port = config.https_port;
+    let bind_host = config.bind_host;
+    let public_host = config.public_host;
+
+    let http_addr: SocketAddr = format!("{}:{}", bind_host, http_port)
+        .parse()
+        .context("Invalid HTTP bind address")?;
+    let https_addr: SocketAddr = format!("{}:{}", bind_host, https_port)
+        .parse()
+        .context("Invalid HTTPS bind address")?;
+
+    // Check for HTTPS configuration (introspected or from env)
+    let https_enabled = config.https_enabled;
+    let ssl_key_path = config.ssl_key_path;
+    let ssl_cert_path = config.ssl_cert_path;
+
+    if https_enabled {
+        // Use axum-server for HTTPS (Rust-only, no Node.js)
+        use axum_server::tls_rustls::RustlsConfig;
+
+        match RustlsConfig::from_pem_file(
+            std::path::Path::new(&ssl_cert_path),
+            std::path::Path::new(&ssl_key_path),
+        ).await {
+            Ok(rustls_config) => {
+                info!("🔒 HTTPS enabled - Loading TLS configuration...");
+
+                // Start HTTP server (redirect or fallback)
+                let http_listener = tokio::net::TcpListener::bind(http_addr).await?;
+                let http_app = app.clone();
+                tokio::spawn(async move {
+                    info!("🌐 HTTP server listening on http://{} (redirects to HTTPS)", http_addr);
+                    let _ = axum::serve(http_listener, http_app).await;
+                });
+
+                info!("🔒 HTTPS server listening on https://{}", https_addr);
+                info!("📡 MCP endpoints:");
+                info!("   - https://{}:{}/api/mcp", public_host, https_port);
+                info!("   - https://{}:{}/mcp-chat", public_host, https_port);
+                info!("   - https://{}:{}/mcp", public_host, https_port);
+                info!("🌐 Web interface: https://{}:{}", public_host, https_port);
+                info!("Open https://{}:{} in your browser to chat with AI", public_host, https_port);
+                info!("💡 HuggingFace browser client: https://{}:{}/mcp-chat", public_host, https_port);
+                info!("💡 Optional headers: X-API-Key, Authorization: Bearer, X-Password (not required)");
+
+                axum_server::bind_rustls(https_addr, rustls_config)
+                    .serve(app.into_make_service())
+                    .await?;
+            }
+            Err(e) => {
+                info!("⚠️  HTTPS enabled but certificates not found, falling back to HTTP");
+                info!("   Error: {}", e);
+                info!("   Generate certificates: ./generate-ssl-cert.sh");
+                info!("   Or set SSL_KEY_PATH and SSL_CERT_PATH environment variables");
+
+                let listener = tokio::net::TcpListener::bind(http_addr).await?;
+                info!("🌐 HTTP server listening on http://{}", http_addr);
+                info!("⚠️  HTTP is not secure - use HTTPS for production");
+                info!("📡 MCP endpoints:");
+                info!("   - http://{}:{}/api/mcp", public_host, http_port);
+                info!("   - http://{}:{}/mcp-chat", public_host, http_port);
+                info!("   - http://{}:{}/mcp", public_host, http_port);
+                info!("Open http://{}:{} in your browser to chat with AI", public_host, http_port);
     axum::serve(listener, app).await?;
+            }
+        }
+    } else {
+        // HTTP only
+        let listener = tokio::net::TcpListener::bind(http_addr).await?;
+        info!("🌐 HTTP server listening on http://{}", http_addr);
+        info!("⚠️  HTTP is not secure - use HTTPS for production");
+        info!("📡 MCP endpoints:");
+        info!("   - http://{}:{}/api/mcp", public_host, http_port);
+        info!("   - http://{}:{}/mcp-chat", public_host, http_port);
+        info!("   - http://{}:{}/mcp", public_host, http_port);
+        info!("Open http://{}:{} in your browser to chat with AI", public_host, http_port);
+        axum::serve(listener, app).await?;
+    }
 
     Ok(())
 }
@@ -621,7 +868,101 @@ async fn mcp_handler(
 ) -> impl IntoResponse {
     info!("MCP request received: {:?}", request);
 
-    // Extract action from request
+    // Check if this is a JSON-RPC 2.0 MCP request
+    if let (Some(jsonrpc), Some(method), Some(id)) = (
+        request.get("jsonrpc").and_then(|v| v.as_str()),
+        request.get("method").and_then(|v| v.as_str()),
+        request.get("id")
+    ) {
+        if jsonrpc != "2.0" {
+            return Json(json!({
+                "jsonrpc": "2.0",
+                "id": id,
+                "error": {
+                    "code": -32600,
+                    "message": "Invalid JSON-RPC version"
+                }
+            }));
+        }
+
+        let params = request.get("params").cloned().unwrap_or(json!({}));
+
+        return match method {
+            "initialize" => {
+                Json(json!({
+                    "jsonrpc": "2.0",
+                    "id": id,
+                    "result": {
+                        "protocolVersion": "2024-11-05",
+                        "serverInfo": {
+                            "name": "op-dbus-mcp-server",
+                            "version": "1.0.0"
+                        },
+                        "capabilities": {
+                            "tools": {
+                                "listChanged": true
+                            }
+                        }
+                    }
+                }))
+            }
+
+            "tools/list" => {
+                let tools = get_available_tools(&state).await;
+                Json(json!({
+                    "jsonrpc": "2.0",
+                    "id": id,
+                    "result": {
+                        "tools": tools
+                    }
+                }))
+            }
+
+            "tools/call" => {
+                let tool_name = params.get("name").and_then(|v| v.as_str());
+                let arguments = params.get("arguments").cloned().unwrap_or(json!({}));
+
+                if let Some(tool_name) = tool_name {
+                    let result = execute_tool_with_orchestration(&state, tool_name, &arguments).await;
+                    match result {
+                        Ok(response) => Json(json!({
+                            "jsonrpc": "2.0",
+                            "id": id,
+                            "result": response
+                        })),
+                        Err(error) => Json(json!({
+                            "jsonrpc": "2.0",
+                            "id": id,
+                            "error": {
+                                "code": -32603,
+                                "message": error.to_string()
+                            }
+                        }))
+                    }
+                } else {
+                    Json(json!({
+                        "jsonrpc": "2.0",
+                        "id": id,
+                        "error": {
+                            "code": -32602,
+                            "message": "Missing tool name"
+                        }
+                    }))
+                }
+            }
+
+            _ => Json(json!({
+                "jsonrpc": "2.0",
+                "id": id,
+                "error": {
+                    "code": -32601,
+                    "message": format!("Method not found: {}", method)
+                }
+            }))
+        };
+    }
+
+    // Fallback to legacy action-based protocol
     let action = request.get("action").and_then(|v| v.as_str());
 
     match action {
@@ -705,14 +1046,7 @@ async fn mcp_handler(
 async fn websocket_handler(
     ws: WebSocketUpgrade,
     State(state): State<ChatState>,
-) -> impl IntoResponse {
-    ws.on_upgrade(move |socket| handle_socket(socket, state))
-}
-
-async fn handle_socket(socket: WebSocket, state: ChatState) {
-    let (mut sender, mut receiver) = socket.split();
-
-    // Generate a simple conversation ID
+) -> imoptar    // Generate a simple conversation ID
     let conversation_id = format!(
         "conv_{}",
         std::time::SystemTime::now()
@@ -894,6 +1228,65 @@ fn build_enhanced_prompt(user_input: &str, context: &Option<SystemContext>) -> S
                 user_input,
                 wp_context
             )
+        }
+    }
+}
+
+/// Build unified tool introspection from workflows and plugins
+/// This follows the unified introspection pattern defined in ToolRegistry.get_introspection()
+/// In a full MCP server, this data would come from ToolRegistry which includes native tools too.
+/// For chat_main.rs, we build it from WorkflowPluginIntrospection which provides the plugin view.
+async fn build_unified_tool_introspection() -> Option<Value> {
+    let wp_introspection = workflow_plugin_introspection::WorkflowPluginIntrospection::new();
+
+    // Convert plugins to the tool format as PluginToolBridge would
+    // Each plugin generates three tools: query, diff, apply
+    let plugin_tools: Vec<serde_json::Value> = wp_introspection
+        .plugins
+        .iter()
+        .flat_map(|plugin| {
+            vec![
+                serde_json::json!({
+                    "name": format!("plugin_{}_query", plugin.name),
+                    "description": format!("Query current state from {} plugin", plugin.name),
+                    "type": "plugin_tool",
+                    "plugin_name": plugin.name,
+                    "operation": "query",
+                }),
+                serde_json::json!({
+                    "name": format!("plugin_{}_diff", plugin.name),
+                    "description": format!("Calculate state diff for {} plugin", plugin.name),
+                    "type": "plugin_tool",
+                    "plugin_name": plugin.name,
+                    "operation": "diff",
+                }),
+                serde_json::json!({
+                    "name": format!("plugin_{}_apply", plugin.name),
+                    "description": format!("Apply state changes for {} plugin", plugin.name),
+                    "type": "plugin_tool",
+                    "plugin_name": plugin.name,
+                    "operation": "apply",
+                }),
+            ]
+        })
+        .collect();
+
+    Some(serde_json::json!({
+        "timestamp": std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs(),
+        "type": "unified_system_introspection",
+        "description": "Unified introspection: plugin-derived tools and workflows (native tools available in full MCP server)",
+        "tools": plugin_tools,
+        "workflows": wp_introspection.workflows,
+        "state_plugins": wp_introspection.plugins,
+        "total_tools": plugin_tools.len(),
+        "total_workflows": wp_introspection.workflows.len(),
+        "available_plugins": wp_introspection.plugins.iter().filter(|p| p.available).count(),
+    }))
+}
+
         }
     }
 }

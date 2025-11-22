@@ -1044,8 +1044,344 @@ class MCPControlCenter {
     }
 }
 
+// MCP Client - Thin JavaScript wrapper for Rust backend MCP server
+// ALL MCP operations go through Rust backend - no direct HTTP/HTTPS connections from JavaScript
+// Rust backend handles: remote server connections, authentication, protocol handling
+class MCPClient {
+    constructor() {
+        this.requestId = 1;
+        this.initialized = false;
+        this.currentServer = null; // Currently configured remote server name (stored in Rust backend)
+    }
+
+    // Configure remote server via Rust backend endpoint
+    // Rust backend handles: HTTPS connection, Bearer token, API key authentication
+    // JavaScript only sends configuration to Rust, Rust does all the work
+    async configure(serverUrl, options = {}) {
+        if (!serverUrl || !serverUrl.trim()) {
+            // Use local server
+            this.currentServer = null;
+            this.initialized = false;
+            return;
+        }
+
+        const serverName = options.name || `remote-${Date.now()}`;
+        const config = {
+            name: serverName,
+            url: serverUrl.trim(),
+            bearer_token: options.bearerToken && options.bearerToken.trim() ? options.bearerToken.trim() : null,
+            api_key: options.apiKey && options.apiKey.trim() ? options.apiKey.trim() : null,
+            disabled: false
+        };
+
+        try {
+            const response = await fetch('/api/mcp/remote/configure', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(config)
+            });
+
+            const data = await response.json();
+            
+            if (data.success) {
+                this.currentServer = serverName;
+                this.initialized = false; // Will re-initialize on next request
+                return data;
+            } else {
+                throw new Error(data.error || 'Failed to configure remote server');
+            }
+        } catch (error) {
+            throw new Error(`Failed to configure remote MCP server: ${error.message}`);
+        }
+    }
+
+    // All MCP requests go through Rust backend
+    // Rust handles: local MCP server, remote HTTPS servers, authentication, protocol
+    // JavaScript is just a thin API client - no direct MCP protocol handling
+    async request(method, params = {}) {
+        // Tell Rust backend which server to use (if remote server configured)
+        const headers = {
+            'Content-Type': 'application/json'
+        };
+        
+        if (this.currentServer) {
+            // Rust backend will route to the configured remote server
+            headers['X-MCP-Server'] = this.currentServer;
+        }
+
+        // All requests go to Rust backend - Rust handles everything
+        const response = await fetch('/api/mcp', {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify({
+                jsonrpc: '2.0',
+                id: this.requestId++,
+                method: method,
+                params: params
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        
+        if (data.error) {
+            throw new Error(data.error.message || 'MCP request failed');
+        }
+        
+        return data.result;
+    }
+
+    // All methods below are thin wrappers - they just call Rust backend
+    // Rust backend handles: MCP protocol, remote connections, tool execution
+    
+    async initialize() {
+        if (this.initialized) return;
+        
+        // Rust backend handles MCP initialization
+        const result = await this.request('initialize', {
+            protocolVersion: '2024-11-05',
+            capabilities: {},
+            clientInfo: {
+                name: 'browser-mcp-client',
+                version: '1.0.0'
+            }
+        });
+        
+        this.initialized = true;
+        return result;
+    }
+
+    // List tools - Rust backend queries local or remote MCP server
+    async listTools() {
+        const result = await this.request('tools/list');
+        return result.tools || [];
+    }
+
+    // Call tool - Rust backend executes on local or remote MCP server
+    async callTool(name, arguments_ = {}) {
+        const result = await this.request('tools/call', {
+            name: name,
+            arguments: arguments_
+        });
+        return result;
+    }
+
+    // Ping - Rust backend handles the ping
+    async ping() {
+        return await this.request('ping');
+    }
+}
+
 // Global instance
 window.mcp = new MCPControlCenter();
+
+// Add MCP client to global scope
+window.mcpClient = new MCPClient();
+
+// Load saved MCP configuration from Rust backend
+// All configuration is stored and managed by Rust backend
+async function loadMCPConfig() {
+    const savedUrl = localStorage.getItem('mcp_server_url');
+    const savedBearerToken = localStorage.getItem('mcp_bearer_token');
+    const savedApiKey = localStorage.getItem('mcp_api_key');
+    
+    // Load configurations from Rust backend (Rust is the source of truth)
+    try {
+        const response = await fetch('/api/mcp/remote/configs');
+        const data = await response.json();
+        
+        if (data.success && data.data && data.data.length > 0) {
+            // Use the first configured remote server from Rust backend
+            const config = data.data[0];
+            if (savedUrl === config.url) {
+                // Configure via Rust backend
+                await window.mcpClient.configure(config.url, {
+                    name: config.name,
+                    bearerToken: config.bearer_token || null,
+                    apiKey: config.api_key || null
+                });
+            }
+        } else if (savedUrl) {
+            // Configure new server via Rust backend
+            await window.mcpClient.configure(savedUrl, {
+                name: `saved-${Date.now()}`,
+                bearerToken: savedBearerToken || null,
+                apiKey: savedApiKey || null
+            });
+        }
+    } catch (error) {
+        console.warn('Failed to load MCP configs from Rust backend:', error);
+    }
+    
+    // Populate modal fields (UI only - Rust backend is source of truth)
+    if (document.getElementById('mcp-server-url')) {
+        document.getElementById('mcp-server-url').value = savedUrl || '';
+        document.getElementById('mcp-bearer-token').value = savedBearerToken || '';
+        document.getElementById('mcp-api-key').value = savedApiKey || '';
+    }
+}
+
+// Show MCP configuration modal
+window.showMCPConfig = function() {
+    loadMCPConfig();
+    document.getElementById('mcp-config-modal').style.display = 'flex';
+};
+
+// Hide MCP configuration modal
+window.hideMCPConfig = function() {
+    document.getElementById('mcp-config-modal').style.display = 'none';
+};
+
+// Save MCP configuration - ALL configuration goes to Rust backend
+// Rust backend handles: HTTPS connections, authentication, remote server management
+window.saveMCPConfig = async function() {
+    const serverUrl = document.getElementById('mcp-server-url').value.trim();
+    const bearerToken = document.getElementById('mcp-bearer-token').value.trim();
+    const apiKey = document.getElementById('mcp-api-key').value.trim();
+    const serverName = document.getElementById('mcp-server-name')?.value.trim() || `server-${Date.now()}`;
+    
+    // Save to localStorage for UI persistence only
+    if (serverUrl) {
+        localStorage.setItem('mcp_server_url', serverUrl);
+    } else {
+        localStorage.removeItem('mcp_server_url');
+    }
+    
+    // Only save tokens if provided (they're optional)
+    if (bearerToken) {
+        localStorage.setItem('mcp_bearer_token', bearerToken);
+    } else {
+        localStorage.removeItem('mcp_bearer_token');
+    }
+    
+    if (apiKey) {
+        localStorage.setItem('mcp_api_key', apiKey);
+    } else {
+        localStorage.removeItem('mcp_api_key');
+    }
+    
+    try {
+        // Configure via Rust backend - Rust handles all HTTP/HTTPS connections
+        if (serverUrl) {
+            await window.mcpClient.configure(serverUrl, {
+                name: serverName,
+                bearerToken: bearerToken || null,  // null if not provided
+                apiKey: apiKey || null              // null if not provided
+            });
+        } else {
+            // Use local server (handled by Rust)
+            await window.mcpClient.configure('', {});
+        }
+        
+        // Reset initialization
+        window.mcpClient.initialized = false;
+        
+        // Show success message
+        window.mcp.showToast('MCP configuration saved!', 'success');
+        hideMCPConfig();
+        
+        // Try to initialize (via Rust backend)
+        await window.mcpClient.initialize();
+        window.mcp.showToast('MCP client connected!', 'success');
+    } catch (err) {
+        window.mcp.showToast(`MCP configuration failed: ${err.message}`, 'error');
+        console.error('MCP configuration error:', err);
+    }
+};
+
+// Test MCP connection - ALL testing goes through Rust backend
+// Rust backend handles: HTTPS connection, authentication, tool listing
+window.testMCPConnection = async function() {
+    const serverUrl = document.getElementById('mcp-server-url').value.trim();
+    const bearerToken = document.getElementById('mcp-bearer-token').value.trim();
+    const apiKey = document.getElementById('mcp-api-key').value.trim();
+    const serverName = `test-${Date.now()}`;
+    
+    try {
+        window.mcp.showToast('Testing MCP connection via Rust backend...', 'info');
+        
+        // Configure remote server via Rust backend (Rust handles HTTPS connection)
+        if (serverUrl) {
+            await window.mcpClient.configure(serverUrl, {
+                name: serverName,
+                bearerToken: bearerToken || null,
+                apiKey: apiKey || null
+            });
+            
+            // Test by listing tools (Rust backend queries remote server)
+            const tools = await window.mcpClient.listTools();
+            window.mcp.showToast(`✅ Connection successful! Found ${tools.length} tools.`, 'success');
+        } else {
+            // Test local server (handled by Rust)
+            await window.mcpClient.configure('', {});
+            const tools = await window.mcpClient.listTools();
+            window.mcp.showToast(`✅ Local server connected! Found ${tools.length} tools.`, 'success');
+        }
+    } catch (error) {
+        window.mcp.showToast(`❌ Connection failed: ${error.message}`, 'error');
+        console.error('MCP connection test failed:', error);
+    }
+};
+
+// Initialize MCP client on page load - ALL initialization via Rust backend
+document.addEventListener('DOMContentLoaded', async () => {
+    // Load saved configuration from Rust backend
+    loadMCPConfig();
+    
+    try {
+        // Initialize via Rust backend (Rust handles MCP protocol)
+        await window.mcpClient.initialize();
+        console.log('✅ MCP Client initialized via Rust backend');
+    } catch (error) {
+        console.warn('⚠️ MCP Client initialization failed:', error);
+    }
+});
+
+// Global function to test MCP connection
+window.testMCPClient = async () => {
+    try {
+        console.log('Testing MCP client...');
+        
+        // Initialize if not already
+        if (!window.mcpClient.initialized) {
+            await window.mcpClient.initialize();
+        }
+        
+        // List tools
+        const tools = await window.mcpClient.listTools();
+        console.log('Available tools:', tools);
+        
+        // Show in chat
+        const chatMessages = document.getElementById('chat-messages');
+        if (chatMessages) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'chat-message system';
+            messageDiv.innerHTML = `
+                <div class="message-content">
+                    <div class="message-text" style="color: var(--accent-blue);">
+                        <strong>MCP Client Connected!</strong><br>
+                        Found ${tools.length} available tools:<br>
+                        ${tools.slice(0, 5).map(t => `• ${t.name || t.id}`).join('<br>')}
+                        ${tools.length > 5 ? `<br>... and ${tools.length - 5} more` : ''}
+                    </div>
+                </div>
+            `;
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        
+        return tools;
+    } catch (error) {
+        console.error('MCP Client test failed:', error);
+        alert(`MCP Client Error: ${error.message}`);
+        throw error;
+    }
+};
 
 // Global functions for inline handlers
 window.closeToolTest = () => window.mcp.closeToolTest();
@@ -1424,7 +1760,138 @@ function renderWorkflow() {
     });
 }
 
-// Model Selection Functions
+// Provider and Model Selection Functions
+async function loadProvidersAndModels() {
+    try {
+        // First, get current provider and models
+        const response = await fetch('/api/models');
+        if (response.ok) {
+            const data = await response.json();
+            let currentProvider = data.provider;
+            
+            // Default to HuggingFace if no provider is set
+            const validProviders = ['huggingface', 'ollama', 'gemini'];
+            if (!currentProvider || !validProviders.includes(currentProvider)) {
+                currentProvider = 'huggingface';
+                // Switch to default provider if needed
+                try {
+                    await fetch('/api/provider/select', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ provider: currentProvider })
+                    });
+                    // Reload models after switching provider
+                    const modelsResponse = await fetch('/api/models');
+                    if (modelsResponse.ok) {
+                        const modelsData = await modelsResponse.json();
+                        populateModelDropdown(modelsData);
+                    }
+                } catch (error) {
+                    console.error('Error setting default provider:', error);
+                }
+            }
+            
+            // Populate provider dropdown with default order: HuggingFace, Ollama, Gemini
+            populateProviderDropdown(currentProvider);
+            
+            // Then fetch and populate models for current provider dynamically
+            if (currentProvider) {
+                const modelsResponse = await fetch(`/api/models/${currentProvider}`);
+                if (modelsResponse.ok) {
+                    const modelsData = await modelsResponse.json();
+                    populateModelDropdownFromProvider(modelsData);
+                }
+            }
+        } else {
+            console.error('Failed to load models:', response.statusText);
+        }
+    } catch (error) {
+        console.error('Error loading providers and models:', error);
+    }
+}
+
+function populateProviderDropdown(currentProvider) {
+    // Only show HuggingFace, Ollama, and Gemini (in that order)
+    const providers = [
+        { id: 'huggingface', name: 'HuggingFace' },
+        { id: 'ollama', name: 'Ollama' },
+        { id: 'gemini', name: 'Gemini' }
+    ];
+
+    const select = document.getElementById('providerSelect');
+    if (!select) return;
+
+    // Clear existing options
+    select.innerHTML = '';
+
+    // Add providers in the specified order
+    providers.forEach(provider => {
+        const option = document.createElement('option');
+        option.value = provider.id;
+        option.textContent = provider.name;
+        // Set selected based on current provider
+        if (provider.id === currentProvider) {
+            option.selected = true;
+        }
+        select.appendChild(option);
+    });
+
+    // Remove old listeners and add new one
+    const newSelect = select.cloneNode(true);
+    select.parentNode.replaceChild(newSelect, select);
+    document.getElementById('providerSelect').addEventListener('change', (e) => handleProviderChange(e.target.value));
+}
+
+async function handleProviderChange(provider) {
+    if (!provider) return;
+
+    try {
+        // Switch provider
+        const response = await fetch('/api/provider/select', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ provider })
+        });
+
+        if (response.ok) {
+            console.log(`Switched to provider: ${provider}`);
+
+            // Fetch models dynamically for the selected provider
+            const modelsResponse = await fetch(`/api/models/${provider}`);
+            if (modelsResponse.ok) {
+                const modelsData = await modelsResponse.json();
+                populateModelDropdownFromProvider(modelsData);
+            } else {
+                console.error('Failed to fetch models for provider:', provider);
+                const modelSelect = document.getElementById('modelSelect');
+                if (modelSelect) {
+                    modelSelect.innerHTML = '<option value="">No models available</option>';
+                }
+            }
+
+            // Show notification in chat
+            const chatMessages = document.getElementById('chat-messages');
+            if (chatMessages) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'chat-message system';
+                messageDiv.innerHTML = `
+                    <div class="message-content">
+                        <div class="message-text" style="color: var(--accent-blue); font-style: italic;">
+                            Provider switched to: ${provider.toUpperCase()}
+                        </div>
+                    </div>
+                `;
+                chatMessages.appendChild(messageDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+        } else {
+            console.error('Failed to switch provider:', response.statusText);
+        }
+    } catch (error) {
+        console.error('Error switching provider:', error);
+    }
+}
+
 async function loadModels() {
     try {
         const response = await fetch('/api/models');
@@ -1448,11 +1915,13 @@ function populateModelDropdown(data) {
     // Clear existing options
     select.innerHTML = '';
 
-    // Add provider label
-    const providerLabel = document.createElement('option');
-    providerLabel.disabled = true;
-    providerLabel.textContent = `--- ${provider.toUpperCase()} Models ---`;
-    select.appendChild(providerLabel);
+    if (!availableModels || availableModels.length === 0) {
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = 'No models available';
+        select.appendChild(option);
+        return;
+    }
 
     // Add models
     availableModels.forEach(model => {
@@ -1463,8 +1932,39 @@ function populateModelDropdown(data) {
         select.appendChild(option);
     });
 
-    // Add change listener
-    select.addEventListener('change', (e) => handleModelChange(e.target.value));
+    // Remove old listeners and add new one
+    const newSelect = select.cloneNode(true);
+    select.parentNode.replaceChild(newSelect, select);
+    document.getElementById('modelSelect').addEventListener('change', (e) => handleModelChange(e.target.value));
+}
+
+// Populate model dropdown from provider-specific model list
+function populateModelDropdownFromProvider(data) {
+    const select = document.getElementById('modelSelect');
+    if (!select) return;
+    
+    // Clear existing options
+    select.innerHTML = '';
+    
+    if (!data.models || data.models.length === 0) {
+        select.innerHTML = '<option value="">No models available</option>';
+        return;
+    }
+    
+    // Add models
+    data.models.forEach(model => {
+        const option = document.createElement('option');
+        option.value = model;
+        option.textContent = model;
+        select.appendChild(option);
+    });
+    
+    // Select first model by default if available
+    if (data.models.length > 0) {
+        select.value = data.models[0];
+        // Trigger model selection
+        handleModelChange(data.models[0]);
+    }
 }
 
 async function handleModelChange(modelId) {
@@ -1472,7 +1972,7 @@ async function handleModelChange(modelId) {
         const response = await fetch('/api/models/select', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ modelId })
+            body: JSON.stringify({ model: modelId })
         });
 
         if (response.ok) {
@@ -1502,9 +2002,52 @@ async function handleModelChange(modelId) {
     }
 }
 
-// Load models when page loads
+// Load providers and models when page loads
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', loadModels);
+    document.addEventListener('DOMContentLoaded', loadProvidersAndModels);
 } else {
-    loadModels();
+    loadProvidersAndModels();
+}
+
+
+async function handleModelChange(modelId) {
+    try {
+        const response = await fetch('/api/models/select', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model: modelId })
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            console.log(`Switched to model: ${data.modelName}`);
+
+            // Show notification in chat
+            const chatMessages = document.getElementById('chat-messages');
+            if (chatMessages) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'chat-message system';
+                messageDiv.innerHTML = `
+                    <div class="message-content">
+                        <div class="message-text" style="color: var(--accent-blue); font-style: italic;">
+                            Model switched to: ${data.modelName}
+                        </div>
+                    </div>
+                `;
+                chatMessages.appendChild(messageDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+        } else {
+            console.error('Failed to switch model:', response.statusText);
+        }
+    } catch (error) {
+        console.error('Error switching model:', error);
+    }
+}
+
+// Load providers and models when page loads
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', loadProvidersAndModels);
+} else {
+    loadProvidersAndModels();
 }

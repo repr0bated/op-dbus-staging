@@ -24,10 +24,45 @@ Once logged in:
 
 ### 4. Set Environment Variable
 
-#### Linux/macOS:
+You can set API keys in multiple ways (in order of precedence):
+1. **Shell environment** (exported in current session)
+2. **`.env` file** in project root or home directory
+3. **`.bashrc` file** in home directory
+
+#### Option A: Export in Shell (Temporary - Current Session Only)
 ```bash
 export OLLAMA_API_KEY="your-api-key-here"
+export GEMINI_API_KEY="your-gemini-key-here"
+export HF_TOKEN="your-huggingface-token-here"
+export GROK_API_KEY="your-grok-key-here"
 ```
+
+#### Option B: Add to `.bashrc` (Persistent - All Sessions)
+```bash
+# Add to ~/.bashrc
+echo 'export OLLAMA_API_KEY="your-api-key-here"' >> ~/.bashrc
+echo 'export GEMINI_API_KEY="your-gemini-key-here"' >> ~/.bashrc
+echo 'export HF_TOKEN="your-huggingface-token-here"' >> ~/.bashrc
+echo 'export GROK_API_KEY="your-grok-key-here"' >> ~/.bashrc
+
+# Reload .bashrc
+source ~/.bashrc
+```
+
+#### Option C: Create `.env` File (Recommended for Projects)
+Create a `.env` file in the project root:
+```bash
+# .env file
+OLLAMA_API_KEY=your-api-key-here
+GEMINI_API_KEY=your-gemini-key-here
+GOOGLE_API_KEY=your-gemini-key-here  # Alternative name
+HF_TOKEN=your-huggingface-token-here
+HUGGINGFACE_TOKEN=your-huggingface-token-here  # Alternative name
+GROK_API_KEY=your-grok-key-here
+AI_PROVIDER=huggingface  # Default provider: huggingface, ollama, gemini, or grok
+```
+
+**Note:** The `.env` file is automatically loaded by `chat-server.js` on startup.
 
 #### Windows (Command Prompt):
 ```cmd
@@ -78,12 +113,35 @@ The web interface also accepts API keys for MCP authentication:
 - **Rotate keys regularly**
 - **Use different keys for different environments**
 
-### Environment File (Optional)
-Create a `.env` file in the project root:
+### Environment File (Automatic Loading)
+
+The system automatically loads environment variables from:
+1. **Project `.env`** - `./.env` in the project root
+2. **Home `.env`** - `~/.env` in your home directory  
+3. **`.bashrc`** - `~/.bashrc` (for export statements)
+
+**Priority:** Shell environment variables > `.env` files > `.bashrc`
+
+Create a `.env` file in the project root (recommended):
 
 ```bash
 # .env file (add to .gitignore)
-OLLAMA_API_KEY=your-actual-api-key-here
+# AI Provider API Keys
+OLLAMA_API_KEY=your-ollama-api-key-here
+GEMINI_API_KEY=your-gemini-api-key-here
+GOOGLE_API_KEY=your-gemini-api-key-here  # Alternative name for Gemini
+HF_TOKEN=your-huggingface-token-here
+HUGGINGFACE_TOKEN=your-huggingface-token-here  # Alternative name
+GROK_API_KEY=your-grok-api-key-here
+
+# AI Configuration
+AI_PROVIDER=huggingface  # Options: huggingface, ollama, gemini, grok
+OLLAMA_DEFAULT_MODEL=llama2
+GEMINI_MODEL=gemini-2.0-flash-exp
+HF_MODEL=microsoft/DialoGPT-medium
+GROK_MODEL=grok-beta
+
+# Server Configuration
 HTTPS_ENABLED=true
 API_KEYS=dev-key-12345,prod-key-67890
 ```

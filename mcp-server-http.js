@@ -918,6 +918,11 @@ app.use('/mcp', apiKeyAuth);
 app.use('/mcp', rateLimiter);
 app.use('/mcp', validateMcpRequest);
 
+// Add /mcp-chat endpoint (alias for /mcp)
+app.use('/mcp-chat', apiKeyAuth);
+app.use('/mcp-chat', rateLimiter);
+app.use('/mcp-chat', validateMcpRequest);
+
 // Create HTTP server
 // Create HTTP and HTTPS servers
 let httpServer = null;
@@ -956,7 +961,8 @@ const mcpServer = new MCPProxyServer();
 // The server is now a clean proxy to the enhanced chatbot
 
 // HTTP POST endpoint for MCP requests
-app.post('/mcp', async (req, res) => {
+// MCP endpoint handler - supports both /mcp and /mcp-chat
+const mcpHandler = async (req, res) => {
     try {
         const request = req.body;
         const correlationId = req.correlationId;
@@ -1265,6 +1271,12 @@ const startServers = async () => {
 
     logActivity('INFO', '✅ MCP Proxy ready - Chatbot is the system brain!');
     logActivity('INFO', '💡 Orchestrator and introspection integrated into chatbot');
+    logActivity('INFO', '🔒 HTTPS enabled for secure external connections');
+    logActivity('INFO', '');
+};
+
+startServers();
+
     logActivity('INFO', '🔒 HTTPS enabled for secure external connections');
     logActivity('INFO', '');
 };
