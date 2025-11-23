@@ -1380,17 +1380,47 @@ class MCPControlCenter {
 
     getNodeConfig(nodeType) {
         const configs = {
+            // Triggers
             'trigger-manual': { label: 'Manual Start', icon: '▶️', inputs: 0, outputs: 1, defaultConfig: {} },
             'trigger-signal': { label: 'D-Bus Signal', icon: '📡', inputs: 0, outputs: 1, defaultConfig: { service: '', signal: '' } },
+            'timer': { label: 'Timer', icon: '⏰', inputs: 0, outputs: 1, defaultConfig: { interval: 60000, repeat: true } },
+            'webhook': { label: 'Webhook', icon: '🪝', inputs: 0, outputs: 1, defaultConfig: { url: '/webhook', method: 'POST' } },
+
+            // D-Bus
             'dbus-method': { label: 'Method Call', icon: '🔧', inputs: 1, outputs: 1, defaultConfig: { service: '', method: '', params: '{}' } },
             'dbus-property-get': { label: 'Get Property', icon: '📋', inputs: 1, outputs: 1, defaultConfig: { service: '', property: '' } },
             'dbus-property-set': { label: 'Set Property', icon: '✏️', inputs: 1, outputs: 1, defaultConfig: { service: '', property: '', value: '' } },
+
+            // Logic
             'condition': { label: 'Condition', icon: '❓', inputs: 1, outputs: 2, defaultConfig: { expression: 'true' } },
             'transform': { label: 'Transform', icon: '🔄', inputs: 1, outputs: 1, defaultConfig: { script: '' } },
             'delay': { label: 'Delay', icon: '⏱️', inputs: 1, outputs: 1, defaultConfig: { ms: 1000 } },
+            'loop': { label: 'Loop', icon: '🔁', inputs: 1, outputs: 1, defaultConfig: { iterations: 10, variable: 'i' } },
+            'split': { label: 'Split', icon: '✂️', inputs: 1, outputs: 2, defaultConfig: { condition: 'value > 50' } },
+            'merge': { label: 'Merge', icon: '🔀', inputs: 2, outputs: 1, defaultConfig: { strategy: 'combine' } },
+
+            // Output
             'output-log': { label: 'Log Output', icon: '📝', inputs: 1, outputs: 0, defaultConfig: { level: 'info' } },
-            'output-notification': { label: 'Notification', icon: '🔔', inputs: 1, outputs: 0, defaultConfig: { title: '', message: '' } }
+            'output-notification': { label: 'Notification', icon: '🔔', inputs: 1, outputs: 0, defaultConfig: { title: '', message: '' } },
+
+            // HTTP & Network
+            'http-request': { label: 'HTTP Request', icon: '🌐', inputs: 1, outputs: 1, defaultConfig: { url: 'https://api.example.com', method: 'GET', headers: '{}', body: '' } },
+
+            // Files
+            'file-read': { label: 'Read File', icon: '📖', inputs: 1, outputs: 1, defaultConfig: { path: '/path/to/file', encoding: 'utf8' } },
+            'file-write': { label: 'Write File', icon: '💾', inputs: 1, outputs: 1, defaultConfig: { path: '/path/to/file', encoding: 'utf8', append: false } },
+
+            // Data Processing
+            'filter': { label: 'Filter', icon: '🔍', inputs: 1, outputs: 1, defaultConfig: { condition: 'item > 0' } },
+            'map': { label: 'Map', icon: '🗺️', inputs: 1, outputs: 1, defaultConfig: { transform: 'item * 2' } },
+            'reduce': { label: 'Reduce', icon: '📉', inputs: 1, outputs: 1, defaultConfig: { accumulator: 'sum', initial: 0 } },
+
+            // Advanced
+            'cache': { label: 'Cache', icon: '🗄️', inputs: 1, outputs: 1, defaultConfig: { key: 'cache_key', ttl: 3600 } },
+            'error-handler': { label: 'Error Handler', icon: '🚨', inputs: 1, outputs: 2, defaultConfig: { onError: 'log', retry: 3 } },
+            'database': { label: 'Database Query', icon: '💾', inputs: 1, outputs: 1, defaultConfig: { query: 'SELECT * FROM table', connection: 'default' } }
         };
+
         return configs[nodeType] || { label: nodeType, icon: '⚙️', inputs: 1, outputs: 1, defaultConfig: {} };
     }
 

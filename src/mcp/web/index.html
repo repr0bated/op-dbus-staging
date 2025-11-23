@@ -518,6 +518,98 @@
                                     </div>
                                 </div>
                             </div>
+
+                            <div class="palette-category">
+                                <div class="palette-category-header" onclick="window.mcp.togglePaletteCategory('http')">
+                                    <span class="palette-toggle">▶</span>
+                                    <span>🌐 HTTP & Network</span>
+                                </div>
+                                <div class="palette-category-items" id="palette-http" style="display: none;">
+                                    <div class="palette-node" draggable="true" data-node-type="http-request" ondragstart="window.mcp.onNodeDragStart(event)">
+                                        <span class="node-icon">🌐</span>
+                                        <span>HTTP Request</span>
+                                    </div>
+                                    <div class="palette-node" draggable="true" data-node-type="webhook" ondragstart="window.mcp.onNodeDragStart(event)">
+                                        <span class="node-icon">🪝</span>
+                                        <span>Webhook</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="palette-category">
+                                <div class="palette-category-header" onclick="window.mcp.togglePaletteCategory('files')">
+                                    <span class="palette-toggle">▶</span>
+                                    <span>📁 Files</span>
+                                </div>
+                                <div class="palette-category-items" id="palette-files" style="display: none;">
+                                    <div class="palette-node" draggable="true" data-node-type="file-read" ondragstart="window.mcp.onNodeDragStart(event)">
+                                        <span class="node-icon">📖</span>
+                                        <span>Read File</span>
+                                    </div>
+                                    <div class="palette-node" draggable="true" data-node-type="file-write" ondragstart="window.mcp.onNodeDragStart(event)">
+                                        <span class="node-icon">💾</span>
+                                        <span>Write File</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="palette-category">
+                                <div class="palette-category-header" onclick="window.mcp.togglePaletteCategory('data')">
+                                    <span class="palette-toggle">▶</span>
+                                    <span>🔄 Data Processing</span>
+                                </div>
+                                <div class="palette-category-items" id="palette-data" style="display: none;">
+                                    <div class="palette-node" draggable="true" data-node-type="filter" ondragstart="window.mcp.onNodeDragStart(event)">
+                                        <span class="node-icon">🔍</span>
+                                        <span>Filter</span>
+                                    </div>
+                                    <div class="palette-node" draggable="true" data-node-type="map" ondragstart="window.mcp.onNodeDragStart(event)">
+                                        <span class="node-icon">🗺️</span>
+                                        <span>Map</span>
+                                    </div>
+                                    <div class="palette-node" draggable="true" data-node-type="reduce" ondragstart="window.mcp.onNodeDragStart(event)">
+                                        <span class="node-icon">📉</span>
+                                        <span>Reduce</span>
+                                    </div>
+                                    <div class="palette-node" draggable="true" data-node-type="split" ondragstart="window.mcp.onNodeDragStart(event)">
+                                        <span class="node-icon">✂️</span>
+                                        <span>Split</span>
+                                    </div>
+                                    <div class="palette-node" draggable="true" data-node-type="merge" ondragstart="window.mcp.onNodeDragStart(event)">
+                                        <span class="node-icon">🔀</span>
+                                        <span>Merge</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="palette-category">
+                                <div class="palette-category-header" onclick="window.mcp.togglePaletteCategory('advanced')">
+                                    <span class="palette-toggle">▶</span>
+                                    <span>⚙️ Advanced</span>
+                                </div>
+                                <div class="palette-category-items" id="palette-advanced" style="display: none;">
+                                    <div class="palette-node" draggable="true" data-node-type="timer" ondragstart="window.mcp.onNodeDragStart(event)">
+                                        <span class="node-icon">⏰</span>
+                                        <span>Timer</span>
+                                    </div>
+                                    <div class="palette-node" draggable="true" data-node-type="loop" ondragstart="window.mcp.onNodeDragStart(event)">
+                                        <span class="node-icon">🔁</span>
+                                        <span>Loop</span>
+                                    </div>
+                                    <div class="palette-node" draggable="true" data-node-type="cache" ondragstart="window.mcp.onNodeDragStart(event)">
+                                        <span class="node-icon">🗄️</span>
+                                        <span>Cache</span>
+                                    </div>
+                                    <div class="palette-node" draggable="true" data-node-type="error-handler" ondragstart="window.mcp.onNodeDragStart(event)">
+                                        <span class="node-icon">🚨</span>
+                                        <span>Error Handler</span>
+                                    </div>
+                                    <div class="palette-node" draggable="true" data-node-type="database" ondragstart="window.mcp.onNodeDragStart(event)">
+                                        <span class="node-icon">💾</span>
+                                        <span>Database</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -625,5 +717,6 @@
     <script src="/settings-panel.js"></script>
     <script src="/data-visualizations.js"></script>
     <script src="/backup-restore.js"></script>
+    <script src="/workflow-enhancements.js"></script>
 </body>
 </html>
