@@ -13,6 +13,9 @@ class WorkflowEnhancements {
         this.redoStack = [];
         this.maxUndoSteps = 50;
         this.currentExecutingNode = null;
+        this.nodeGroups = [];
+        this.workflowComments = [];
+        this.executionPath = [];
     }
 
     // Initialize enhancements
@@ -27,6 +30,9 @@ class WorkflowEnhancements {
         this.setupNodeValidation();
         this.setupNodeSearch();
         this.setupWorkflowVersioning();
+        this.setupNodeGrouping();
+        this.setupWorkflowComments();
+        this.setupExecutionPathTracing();
         this.updateWorkflowStats();
 
         console.log('Workflow enhancements initialized');
@@ -1358,6 +1364,528 @@ class WorkflowEnhancements {
 
         this.mcp.showToast(statsHTML, 'info', 30000);
     }
+
+    // Setup node grouping
+    setupNodeGrouping() {
+        this.createNodeGroup = (name, nodeIds) => {
+            const group = {
+                id: 'group_' + Date.now(),
+                name: name || `Group ${this.nodeGroups.length + 1}`,
+                nodeIds: nodeIds || [],
+                color: this.getRandomColor(),
+                collapsed: false
+            };
+
+            this.nodeGroups.push(group);
+            this.renderNodeGroups();
+
+            if (window.notificationSystem) {
+                window.notificationSystem.showNotification(`Group "${group.name}" created`, {
+                    type: 'success',
+                    duration: 2000
+                });
+            }
+
+            return group;
+        };
+    }
+
+    // Get random color for groups
+    getRandomColor() {
+        const colors = [
+            '#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b',
+            '#10b981', '#06b6d4', '#f97316', '#14b8a6'
+        ];
+        return colors[Math.floor(Math.random() * colors.length)];
+    }
+
+    // Render node groups on canvas
+    renderNodeGroups() {
+        const canvas = document.getElementById('workflow-canvas');
+        if (!canvas) return;
+
+        const ctx = canvas.getContext('2d');
+
+        this.nodeGroups.forEach(group => {
+            if (group.nodeIds.length === 0) return;
+
+            // Find bounding box of all nodes in group
+            const nodes = this.mcp.workflowNodes.filter(n => group.nodeIds.includes(n.id));
+            if (nodes.length === 0) return;
+
+            const minX = Math.min(...nodes.map(n => n.x)) - 20;
+            const minY = Math.min(...nodes.map(n => n.y)) - 40;
+            const maxX = Math.max(...nodes.map(n => n.x + n.width)) + 20;
+            const maxY = Math.max(...nodes.map(n => n.y + n.height)) + 20;
+
+            // Draw group background
+            ctx.save();
+            ctx.fillStyle = group.color + '20';
+            ctx.strokeStyle = group.color;
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.fillRect(minX, minY, maxX - minX, maxY - minY);
+            ctx.strokeRect(minX, minY, maxX - minX, maxY - minY);
+            ctx.setLineDash([]);
+
+            // Draw group label
+            ctx.fillStyle = group.color;
+            ctx.font = 'bold 12px sans-serif';
+            ctx.fillText(group.name, minX + 10, minY + 15);
+            ctx.restore();
+        });
+    }
+
+    // Show group management dialog
+    showGroupManagement() {
+        const groupsHTML = `
+            <div style="padding: 20px; max-width: 600px;">
+                <h3 style="margin-top: 0;">📦 Node Groups</h3>
+
+                ${this.nodeGroups.length === 0 ? `
+                    <p style="color: var(--text-secondary); text-align: center; padding: 30px 0;">
+                        No groups created yet
+                    </p>
+                ` : `
+                    <div style="display: grid; gap: 10px; margin-top: 15px;">
+                        ${this.nodeGroups.map(group => `
+                            <div style="
+                                padding: 12px;
+                                background: var(--bg-secondary);
+                                border-left: 4px solid ${group.color};
+                                border-radius: 6px;
+                                display: flex;
+                                justify-content: space-between;
+                                align-items: center;
+                            ">
+                                <div>
+                                    <strong>${group.name}</strong>
+                                    <div style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">
+                                        ${group.nodeIds.length} nodes
+                                    </div>
+                                </div>
+                                <div style="display: flex; gap: 8px;">
+                                    <button class="btn btn-xs" onclick="window.workflowEnhancements.deleteGroup('${group.id}'); this.closest('.toast').remove(); window.workflowEnhancements.showGroupManagement();">
+                                        Delete
+                                    </button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `}
+
+                <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid var(--border-color);">
+                    <input
+                        type="text"
+                        id="new-group-name"
+                        class="form-control"
+                        placeholder="Group name..."
+                        style="margin-bottom: 8px;"
+                    >
+                    <button class="btn btn-sm btn-primary" onclick="
+                        const name = document.getElementById('new-group-name').value;
+                        window.workflowEnhancements.createGroupFromSelected(name);
+                        this.closest('.toast').remove();
+                    ">
+                        Create Group from Selected Nodes
+                    </button>
+                </div>
+            </div>
+        `;
+
+        this.mcp.showToast(groupsHTML, 'info', 60000);
+    }
+
+    // Create group from selected nodes
+    createGroupFromSelected(name) {
+        // For now, just create an empty group - would need selection tracking
+        this.createNodeGroup(name, []);
+        this.showGroupManagement();
+    }
+
+    // Delete group
+    deleteGroup(groupId) {
+        this.nodeGroups = this.nodeGroups.filter(g => g.id !== groupId);
+        this.mcp.renderWorkflowCanvas();
+
+        if (window.notificationSystem) {
+            window.notificationSystem.showNotification('Group deleted', {
+                type: 'success',
+                duration: 2000
+            });
+        }
+    }
+
+    // Setup workflow comments
+    setupWorkflowComments() {
+        this.addComment = (x, y, text) => {
+            const comment = {
+                id: 'comment_' + Date.now(),
+                x: x,
+                y: y,
+                text: text,
+                width: 200,
+                height: 100,
+                color: '#f59e0b'
+            };
+
+            this.workflowComments.push(comment);
+            this.renderWorkflowComments();
+
+            return comment;
+        };
+    }
+
+    // Render workflow comments
+    renderWorkflowComments() {
+        const canvas = document.getElementById('workflow-canvas');
+        if (!canvas) return;
+
+        const ctx = canvas.getContext('2d');
+
+        this.workflowComments.forEach(comment => {
+            ctx.save();
+
+            // Draw comment box
+            ctx.fillStyle = comment.color + '30';
+            ctx.strokeStyle = comment.color;
+            ctx.lineWidth = 2;
+            ctx.fillRect(comment.x, comment.y, comment.width, comment.height);
+            ctx.strokeRect(comment.x, comment.y, comment.width, comment.height);
+
+            // Draw comment text
+            ctx.fillStyle = '#000';
+            ctx.font = '12px sans-serif';
+            const lines = this.wrapText(comment.text, comment.width - 20);
+            lines.forEach((line, i) => {
+                ctx.fillText(line, comment.x + 10, comment.y + 25 + i * 15);
+            });
+
+            ctx.restore();
+        });
+    }
+
+    // Wrap text to fit width
+    wrapText(text, maxWidth) {
+        const words = text.split(' ');
+        const lines = [];
+        let currentLine = '';
+
+        words.forEach(word => {
+            const testLine = currentLine + (currentLine ? ' ' : '') + word;
+            if (testLine.length * 7 < maxWidth) {
+                currentLine = testLine;
+            } else {
+                if (currentLine) lines.push(currentLine);
+                currentLine = word;
+            }
+        });
+
+        if (currentLine) lines.push(currentLine);
+        return lines;
+    }
+
+    // Show comment dialog
+    showAddComment() {
+        const commentHTML = `
+            <div style="padding: 20px; max-width: 500px;">
+                <h3 style="margin-top: 0;">💬 Add Comment</h3>
+                <textarea
+                    id="comment-text"
+                    class="form-control"
+                    placeholder="Enter comment text..."
+                    rows="4"
+                    style="width: 100%; margin-top: 15px; resize: vertical;"
+                ></textarea>
+                <div style="margin-top: 15px; display: flex; gap: 8px;">
+                    <button class="btn btn-sm btn-primary" onclick="
+                        const text = document.getElementById('comment-text').value;
+                        if (text) {
+                            window.workflowEnhancements.addComment(100, 100, text);
+                            window.mcp.renderWorkflowCanvas();
+                        }
+                        this.closest('.toast').remove();
+                    ">
+                        Add Comment
+                    </button>
+                    <button class="btn btn-sm" onclick="this.closest('.toast').remove();">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        `;
+
+        this.mcp.showToast(commentHTML, 'info', 60000);
+    }
+
+    // Setup execution path tracing
+    setupExecutionPathTracing() {
+        this.traceExecutionPath = (startNodeId) => {
+            this.executionPath = [];
+
+            // BFS to find execution path
+            const visited = new Set();
+            const queue = [startNodeId];
+
+            while (queue.length > 0) {
+                const nodeId = queue.shift();
+                if (visited.has(nodeId)) continue;
+
+                visited.add(nodeId);
+                this.executionPath.push(nodeId);
+
+                // Find connected nodes
+                const connections = this.mcp.workflowConnections.filter(c => c.from === nodeId);
+                connections.forEach(conn => {
+                    if (!visited.has(conn.to)) {
+                        queue.push(conn.to);
+                    }
+                });
+            }
+
+            this.renderExecutionPath();
+        };
+    }
+
+    // Render execution path
+    renderExecutionPath() {
+        const canvas = document.getElementById('workflow-canvas');
+        if (!canvas) return;
+
+        const ctx = canvas.getContext('2d');
+
+        // Highlight path nodes
+        this.executionPath.forEach((nodeId, index) => {
+            const node = this.mcp.workflowNodes.find(n => n.id === nodeId);
+            if (!node) return;
+
+            ctx.save();
+            ctx.strokeStyle = '#10b981';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([]);
+
+            // Draw order number
+            ctx.fillStyle = '#10b981';
+            ctx.font = 'bold 16px sans-serif';
+            ctx.fillText(`${index + 1}`, node.x - 25, node.y + 30);
+
+            // Highlight node border
+            ctx.strokeRect(node.x - 3, node.y - 3, node.width + 6, node.height + 6);
+            ctx.restore();
+        });
+    }
+
+    // Clear execution path
+    clearExecutionPath() {
+        this.executionPath = [];
+        this.mcp.renderWorkflowCanvas();
+    }
+
+    // Show execution path dialog
+    showExecutionPath() {
+        const triggers = this.mcp.workflowNodes.filter(n =>
+            n.type.startsWith('trigger-') || n.type === 'timer' || n.type === 'webhook'
+        );
+
+        if (triggers.length === 0) {
+            this.mcp.showToast('No trigger nodes found in workflow', 'error', 3000);
+            return;
+        }
+
+        const pathHTML = `
+            <div style="padding: 20px; max-width: 500px;">
+                <h3 style="margin-top: 0;">🛤️ Execution Path</h3>
+                <p style="font-size: 13px; color: var(--text-secondary);">
+                    Select a trigger node to visualize the execution path:
+                </p>
+
+                <div style="display: grid; gap: 8px; margin-top: 15px;">
+                    ${triggers.map(trigger => `
+                        <button class="btn btn-sm" style="text-align: left;" onclick="
+                            window.workflowEnhancements.traceExecutionPath('${trigger.id}');
+                            window.mcp.renderWorkflowCanvas();
+                            this.closest('.toast').remove();
+                        ">
+                            ${trigger.icon} ${trigger.label}
+                        </button>
+                    `).join('')}
+                </div>
+
+                <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border-color);">
+                    <button class="btn btn-sm" onclick="
+                        window.workflowEnhancements.clearExecutionPath();
+                        this.closest('.toast').remove();
+                    ">
+                        Clear Path Visualization
+                    </button>
+                </div>
+            </div>
+        `;
+
+        this.mcp.showToast(pathHTML, 'info', 60000);
+    }
+
+    // Export workflow in different formats
+    exportWorkflowAdvanced(format) {
+        const workflow = {
+            name: 'workflow',
+            nodes: this.mcp.workflowNodes,
+            connections: this.mcp.workflowConnections,
+            groups: this.nodeGroups,
+            comments: this.workflowComments,
+            metadata: {
+                created: new Date().toISOString(),
+                version: '2.0',
+                nodeCount: this.mcp.workflowNodes.length,
+                connectionCount: this.mcp.workflowConnections.length
+            }
+        };
+
+        let content, filename, mimeType;
+
+        switch (format) {
+            case 'json':
+                content = JSON.stringify(workflow, null, 2);
+                filename = `workflow-${Date.now()}.json`;
+                mimeType = 'application/json';
+                break;
+
+            case 'yaml':
+                // Simple YAML conversion
+                content = this.convertToYAML(workflow);
+                filename = `workflow-${Date.now()}.yaml`;
+                mimeType = 'text/yaml';
+                break;
+
+            case 'markdown':
+                content = this.convertToMarkdown(workflow);
+                filename = `workflow-${Date.now()}.md`;
+                mimeType = 'text/markdown';
+                break;
+
+            default:
+                content = JSON.stringify(workflow, null, 2);
+                filename = `workflow-${Date.now()}.json`;
+                mimeType = 'application/json';
+        }
+
+        // Download file
+        const blob = new Blob([content], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        link.click();
+        URL.revokeObjectURL(url);
+
+        if (window.notificationSystem) {
+            window.notificationSystem.showNotification(`Workflow exported as ${format.toUpperCase()}`, {
+                type: 'success',
+                duration: 3000
+            });
+        }
+    }
+
+    // Convert workflow to YAML
+    convertToYAML(workflow) {
+        let yaml = `# Workflow Export\n`;
+        yaml += `name: ${workflow.name}\n`;
+        yaml += `created: ${workflow.metadata.created}\n\n`;
+
+        yaml += `nodes:\n`;
+        workflow.nodes.forEach(node => {
+            yaml += `  - id: ${node.id}\n`;
+            yaml += `    type: ${node.type}\n`;
+            yaml += `    label: ${node.label}\n`;
+            yaml += `    position: [${node.x}, ${node.y}]\n`;
+        });
+
+        yaml += `\nconnections:\n`;
+        workflow.connections.forEach(conn => {
+            yaml += `  - from: ${conn.from}\n`;
+            yaml += `    to: ${conn.to}\n`;
+        });
+
+        return yaml;
+    }
+
+    // Convert workflow to Markdown
+    convertToMarkdown(workflow) {
+        let md = `# Workflow Documentation\n\n`;
+        md += `**Created:** ${workflow.metadata.created}\n\n`;
+        md += `**Statistics:**\n`;
+        md += `- Nodes: ${workflow.metadata.nodeCount}\n`;
+        md += `- Connections: ${workflow.metadata.connectionCount}\n\n`;
+
+        md += `## Nodes\n\n`;
+        workflow.nodes.forEach(node => {
+            md += `### ${node.icon} ${node.label}\n`;
+            md += `- **Type:** ${node.type}\n`;
+            md += `- **ID:** ${node.id}\n`;
+            if (Object.keys(node.config).length > 0) {
+                md += `- **Config:** ${JSON.stringify(node.config, null, 2)}\n`;
+            }
+            md += `\n`;
+        });
+
+        md += `## Connections\n\n`;
+        workflow.connections.forEach((conn, i) => {
+            const fromNode = workflow.nodes.find(n => n.id === conn.from);
+            const toNode = workflow.nodes.find(n => n.id === conn.to);
+            md += `${i + 1}. ${fromNode?.label || conn.from} → ${toNode?.label || conn.to}\n`;
+        });
+
+        return md;
+    }
+
+    // Show export format dialog
+    showExportFormats() {
+        const exportHTML = `
+            <div style="padding: 20px; max-width: 500px;">
+                <h3 style="margin-top: 0;">📤 Export Workflow</h3>
+                <p style="font-size: 13px; color: var(--text-secondary);">
+                    Choose export format:
+                </p>
+
+                <div style="display: grid; gap: 10px; margin-top: 15px;">
+                    <button class="btn btn-sm" style="text-align: left; display: flex; align-items: center; gap: 10px;" onclick="
+                        window.workflowEnhancements.exportWorkflowAdvanced('json');
+                        this.closest('.toast').remove();
+                    ">
+                        <span style="font-size: 20px;">📄</span>
+                        <div>
+                            <strong>JSON Format</strong>
+                            <div style="font-size: 11px; color: var(--text-secondary);">Full workflow data with metadata</div>
+                        </div>
+                    </button>
+
+                    <button class="btn btn-sm" style="text-align: left; display: flex; align-items: center; gap: 10px;" onclick="
+                        window.workflowEnhancements.exportWorkflowAdvanced('yaml');
+                        this.closest('.toast').remove();
+                    ">
+                        <span style="font-size: 20px;">📋</span>
+                        <div>
+                            <strong>YAML Format</strong>
+                            <div style="font-size: 11px; color: var(--text-secondary);">Human-readable configuration</div>
+                        </div>
+                    </button>
+
+                    <button class="btn btn-sm" style="text-align: left; display: flex; align-items: center; gap: 10px;" onclick="
+                        window.workflowEnhancements.exportWorkflowAdvanced('markdown');
+                        this.closest('.toast').remove();
+                    ">
+                        <span style="font-size: 20px;">📝</span>
+                        <div>
+                            <strong>Markdown Documentation</strong>
+                            <div style="font-size: 11px; color: var(--text-secondary);">Documentation with node details</div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        `;
+
+        this.mcp.showToast(exportHTML, 'info', 60000);
+    }
 }
 
 // Initialize workflow enhancements when DOM is ready
@@ -1386,4 +1914,8 @@ if (typeof window.mcp !== 'undefined') {
     window.mcp.showWorkflowVersions = () => window.workflowEnhancements.showVersionBrowser();
     window.mcp.showWorkflowStats = () => window.workflowEnhancements.showStatsDashboard();
     window.mcp.saveWorkflowVersion = (name) => window.workflowEnhancements.saveWorkflowVersion(name);
+    window.mcp.showNodeGroups = () => window.workflowEnhancements.showGroupManagement();
+    window.mcp.addWorkflowComment = () => window.workflowEnhancements.showAddComment();
+    window.mcp.showExecutionPath = () => window.workflowEnhancements.showExecutionPath();
+    window.mcp.showExportFormats = () => window.workflowEnhancements.showExportFormats();
 }
