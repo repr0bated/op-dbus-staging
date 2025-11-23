@@ -375,11 +375,41 @@
                             </svg>
                             Execute
                         </button>
-                        <button class="btn btn-sm" onclick="window.mcp.validateWorkflow()">
+                        <button class="btn btn-sm" onclick="window.mcp.validateWorkflow()" title="Validate workflow for errors">
                             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                                 <path d="M13 4L6 11L3 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                             </svg>
                             Validate
+                        </button>
+                        <button class="btn btn-sm" onclick="window.mcp.undoWorkflow()" title="Undo last action (Ctrl+Z)">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                <path d="M4 8H12M4 8L7 5M4 8L7 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            Undo
+                        </button>
+                        <button class="btn btn-sm" onclick="window.mcp.redoWorkflow()" title="Redo last action (Ctrl+Shift+Z)">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                <path d="M12 8H4M12 8L9 5M12 8L9 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            Redo
+                        </button>
+                        <button class="btn btn-sm" onclick="window.mcp.toggleWorkflowDebug()" title="Toggle debug mode">
+                            🐛 Debug
+                        </button>
+                        <button class="btn btn-sm" onclick="window.mcp.recoverAutoSave()" title="Recover from auto-save">
+                            ♻️ Recover
+                        </button>
+                        <button class="btn btn-sm" onclick="window.mcp.showTemplateBrowser()" title="Browse enhanced templates">
+                            📚 Templates+
+                        </button>
+                        <button class="btn btn-sm" onclick="window.mcp.searchWorkflowNodes()" title="Search nodes">
+                            🔍 Search
+                        </button>
+                        <button class="btn btn-sm" onclick="window.mcp.showWorkflowVersions()" title="Manage workflow versions">
+                            📚 Versions
+                        </button>
+                        <button class="btn btn-sm" onclick="window.mcp.showWorkflowStats()" title="View workflow statistics">
+                            📊 Stats
                         </button>
                         <button class="btn btn-sm" onclick="window.mcp.clearWorkflowCanvas()">
                             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
