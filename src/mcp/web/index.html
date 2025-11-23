@@ -229,11 +229,21 @@
                 <div class="section-header">
                     <h2>🤖 AI Chat</h2>
                     <div class="chat-controls">
-                        <div style="display: flex; align-items: center; gap: 12px;">
+                        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                            <label for="providerSelect" style="font-weight: 500; font-size: 0.9rem;">Provider:</label>
+                            <select id="providerSelect" class="provider-dropdown" style="padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); font-size: 0.9rem; min-width: 200px;">
+                                <option value="">Loading providers...</option>
+                            </select>
                             <label for="modelSelect" style="font-weight: 500; font-size: 0.9rem;">Model:</label>
                             <select id="modelSelect" class="model-dropdown" style="padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-primary); font-size: 0.9rem; min-width: 200px;">
-                                <option value="">Loading models...</option>
+                                <option value="">Select provider first...</option>
                             </select>
+                            <button class="btn btn-sm" onclick="showMCPConfig()" title="Configure MCP Server">
+                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                    <path d="M8 2L10 6L14 7L10 8L8 12L6 8L2 7L6 6L8 2Z" stroke="currentColor" stroke-width="1.5"/>
+                                </svg>
+                                MCP Config
+                            </button>
                         </div>
                         <button class="btn btn-sm" onclick="clearChat()">
                             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -265,6 +275,11 @@
                                     • "How do I enable virtualization?"<br>
                                     • "Should I migrate providers?"<br>
                                     • "Run discover_system" (to analyze hardware)<br>
+                                    <br>
+                                    <strong>MCP Client:</strong><br>
+                                    • Open browser console and type: <code>testMCPClient()</code><br>
+                                    • Or use: <code>window.mcpClient.listTools()</code><br>
+                                    • Or use: <code>window.mcpClient.callTool('tool_name', {})</code><br>
                                     <br>
                                     Type 'help' for more commands or just ask me anything!
                                 </div>
@@ -582,6 +597,51 @@
 
     <!-- Toast Notifications -->
     <div id="toast-container" class="toast-container"></div>
+
+    <!-- MCP Configuration Modal -->
+    <div class="modal" id="mcp-config-modal" style="display:none;">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3>🔌 MCP Server Configuration</h3>
+                <button class="close-btn" onclick="hideMCPConfig()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="mcp-server-url">Server URL (HTTPS://host:port/path):</label>
+                    <input type="text" id="mcp-server-url" class="form-control" 
+                           placeholder="https://example.com:8443/mcp" 
+                           value="">
+                    <small style="color: var(--text-secondary);">Leave empty to use local server. Configured via Rust backend.</small>
+                </div>
+                <div class="form-group">
+                    <label for="mcp-server-name">Server Name (Optional):</label>
+                    <input type="text" id="mcp-server-name" class="form-control" 
+                           placeholder="my-remote-server" 
+                           value="">
+                    <small style="color: var(--text-secondary);">Name for this remote server configuration</small>
+                </div>
+                <div class="form-group">
+                    <label for="mcp-bearer-token">Bearer Token (Optional):</label>
+                    <input type="password" id="mcp-bearer-token" class="form-control" 
+                           placeholder="Leave empty if not required" 
+                           value="">
+                    <small style="color: var(--text-secondary);">Authorization: Bearer YOUR_TOKEN (only if server requires it)</small>
+                </div>
+                <div class="form-group">
+                    <label for="mcp-api-key">API Key (Optional):</label>
+                    <input type="password" id="mcp-api-key" class="form-control" 
+                           placeholder="Leave empty if not required" 
+                           value="">
+                    <small style="color: var(--text-secondary);">X-API-Key: YOUR_KEY (only if server requires it)</small>
+                </div>
+                <div class="form-actions" style="margin-top: 20px;">
+                    <button class="btn btn-primary" onclick="saveMCPConfig()">Save Configuration</button>
+                    <button class="btn btn-secondary" onclick="testMCPConnection()">Test Connection</button>
+                    <button class="btn btn-secondary" onclick="hideMCPConfig()">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Scripts -->
     <script src="/app.js"></script>

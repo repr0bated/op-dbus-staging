@@ -62,7 +62,12 @@ pub mod workflow_plugin_introspection;
 // Embedded resources for MCP
 pub mod resources;
 
-// pub mod comprehensive_introspection;
+// Comprehensive native introspection (no wrappers)
+pub mod comprehensive_introspection;
+pub mod native_introspection;
+
+// Introspective Gadget - Universal object inspector (like Inspector Gadget!)
+pub mod introspective_gadget;
 
 // Bundled comprehensive agents
 pub mod embedded_agents;

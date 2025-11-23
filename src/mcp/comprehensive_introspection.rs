@@ -244,6 +244,8 @@ impl ComprehensiveIntrospector {
         let xml: String = proxy.call("Introspect", &()).await?;
         Ok(xml)
     }
+
+    fn extract_xml_attr(&self, line: &str, attr: &str) -> Option<String> {
         let pattern = format!("{}=\"", attr);
         if let Some(start) = line.find(&pattern) {
             let start = start + pattern.len();

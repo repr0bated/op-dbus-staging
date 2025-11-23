@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Brain Chat - MCP Enhanced AI</title>
+    <link rel="stylesheet" href="/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤖</text></svg>">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <div class="logo-icon">🧠</div>
+                    <div class="logo-text">
+                        <h1>System Brain</h1>
+                        <span>MCP Enhanced AI Assistant</span>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <button id="clear-chat" class="btn-secondary">Clear Chat</button>
+                    <button id="settings-btn" class="btn-secondary">⚙️</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Chat Container -->
+        <div class="chat-container">
+            <div id="chat-messages" class="chat-messages">
+                <!-- Welcome message -->
+                <div class="message system-message">
+                    <div class="message-avatar">🤖</div>
+                    <div class="message-content">
+                        <div class="message-header">
+                            <span class="message-author">System Brain</span>
+                            <span class="message-time">now</span>
+                        </div>
+                        <div class="message-text">
+                            Hello! I'm your intelligent system assistant with MCP capabilities.
+                            I can help you orchestrate server tasks, perform system introspection,
+                            and manage your infrastructure. What would you like to do?
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Typing indicator -->
+            <div id="typing-indicator" class="typing-indicator" style="display: none;">
+                <div class="typing-avatar">🤖</div>
+                <div class="typing-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Input Area -->
+        <div class="input-area">
+            <div class="input-container">
+                <textarea
+                    id="message-input"
+                    placeholder="Ask me about system orchestration, D-Bus services, or infrastructure management..."
+                    rows="1"
+                    maxlength="2000"
+                ></textarea>
+                <button id="send-button" class="send-button" disabled>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22,2 15,22 11,13 2,9"></polygon>
+                    </svg>
+                </button>
+            </div>
+            <div class="input-footer">
+                <div class="input-status">
+                    <span id="connection-status" class="status-connected">🟢 Connected</span>
+                    <span id="char-count">0/2000</span>
+                </div>
+                <div class="input-hint">
+                    Press Enter to send, Shift+Enter for new line
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Modal -->
+        <div id="settings-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Settings</h3>
+                    <button class="modal-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="setting-group">
+                        <label for="api-key">API Key</label>
+                        <input type="password" id="api-key" placeholder="Enter your API key">
+                    </div>
+                    <div class="setting-group">
+                        <label for="server-url">Server URL</label>
+                        <input type="url" id="server-url" value="" readonly>
+                    </div>
+                    <div class="setting-group">
+                        <label for="model-select">Model</label>
+                        <select id="model-select">
+                            <option value="mistral">Mistral</option>
+                            <option value="llama2">Llama 2</option>
+                            <option value="codellama">CodeLlama</option>
+                        </select>
+                    </div>
+                    <div class="setting-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="auto-scroll" checked>
+                            Auto-scroll to new messages
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="save-settings" class="btn-primary">Save</button>
+                    <button id="cancel-settings" class="btn-secondary">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/app.js"></script>
+</body>
+</html>

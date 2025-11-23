@@ -1,0 +1,59 @@
+# Backend Architect's Systemd Service for MCPO MCP Server
+# Production-ready service with security hardening and monitoring
+
+[Unit]
+Description=MCPO MCP Server - Backend Architect Implementation
+Documentation=https://github.com/yourorg/operation-dbus
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=mcpo
+Group=mcpo
+WorkingDirectory=/opt/mcpo-mcp-server
+ExecStart=/usr/bin/node mcp-server-http.js
+ExecReload=/bin/kill -HUP $MAINPID
+
+# Environment variables
+Environment=NODE_ENV=production
+Environment=MCP_PORT=8000
+Environment=BIND_IP=127.0.0.1
+Environment=LOG_LEVEL=info
+Environment=METRICS_ENABLED=true
+Environment=TRUST_PROXY=false
+Environment=RATE_LIMIT_WINDOW_MS=900000
+Environment=RATE_LIMIT_MAX_REQUESTS=100
+Environment=CIRCUIT_BREAKER_FAILURE_THRESHOLD=5
+Environment=CIRCUIT_BREAKER_RESET_TIMEOUT=60000
+Environment=CHAT_SERVER_URL=http://localhost:8080
+
+# Security settings
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths=/opt/mcpo-mcp-server/logs
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+
+# Restart policy
+Restart=always
+RestartSec=5s
+StartLimitInterval=300
+StartLimitBurst=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mcpo-mcp-server
+
+[Install]
+WantedBy=multi-user.target
+

@@ -1,7 +1,9 @@
 //! MCP Client - Connect to and introspect other MCP servers
 //! Discovers hosted MCP servers and exposes their tools individually
+//! Supports both local process-based servers and remote HTTP/HTTPS servers
 
 use anyhow::{Context, Result};
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -11,13 +13,26 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStdin, ChildStdout, Command};
 use tokio::sync::RwLock;
 
-/// Configuration for a hosted MCP server
+/// Configuration for a hosted MCP server (local process-based)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HostedMcpConfig {
     pub name: String,
     pub command: String,
     pub args: Vec<String>,
     pub env: HashMap<String, String>,
+    #[serde(default)]
+    pub disabled: bool,
+}
+
+/// Configuration for a remote HTTP/HTTPS MCP server
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RemoteMcpConfig {
+    pub name: String,
+    pub url: String, // HTTPS URL with port and path, e.g., "https://example.com:8443/mcp"
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bearer_token: Option<String>, // Optional: Authorization: Bearer YOUR_TOKEN
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub api_key: Option<String>, // Optional: X-API-Key: YOUR_KEY
     #[serde(default)]
     pub disabled: bool,
 }
@@ -48,10 +63,13 @@ pub struct McpToolInfo {
     pub server_name: String, // Which MCP server this tool belongs to
 }
 
-/// MCP Client - manages connections to hosted MCP servers
+/// MCP Client - manages connections to hosted MCP servers (both local and remote)
 pub struct McpClient {
     configs: Arc<RwLock<HashMap<String, HostedMcpConfig>>>,
     servers: Arc<RwLock<HashMap<String, HostedMcpServer>>>,
+    remote_configs: Arc<RwLock<HashMap<String, RemoteMcpConfig>>>,
+    remote_servers: Arc<RwLock<HashMap<String, RemoteMcpServer>>>,
+    http_client: Client,
 }
 
 /// Active connection to a hosted MCP server
@@ -217,9 +235,17 @@ impl HostedMcpServer {
 
 impl McpClient {
     pub fn new() -> Self {
+        let http_client = Client::builder()
+            .timeout(std::time::Duration::from_secs(30))
+            .build()
+            .unwrap_or_else(|_| Client::new());
+
         Self {
             configs: Arc::new(RwLock::new(HashMap::new())),
             servers: Arc::new(RwLock::new(HashMap::new())),
+            remote_configs: Arc::new(RwLock::new(HashMap::new())),
+            remote_servers: Arc::new(RwLock::new(HashMap::new())),
+            http_client,
         }
     }
 
@@ -505,6 +531,223 @@ impl McpClient {
             .get(server_name)
             .map(|c| c.env.clone())
             .unwrap_or_default())
+    }
+}
+
+/// Remote HTTP/HTTPS MCP server connection
+struct RemoteMcpServer {
+    name: String,
+    url: String,
+    client: Client,
+    bearer_token: Option<String>,
+    api_key: Option<String>,
+    request_id: Arc<tokio::sync::Mutex<u64>>,
+    initialized: Arc<tokio::sync::Mutex<bool>>,
+}
+
+impl RemoteMcpServer {
+    fn new(name: String, config: &RemoteMcpConfig) -> Result<Self> {
+        let client = Client::builder()
+            .timeout(std::time::Duration::from_secs(30))
+            .build()
+            .context("Failed to create HTTP client")?;
+
+        Ok(Self {
+            name,
+            url: config.url.clone(),
+            client,
+            bearer_token: config.bearer_token.clone(),
+            api_key: config.api_key.clone(),
+            request_id: Arc::new(tokio::sync::Mutex::new(0)),
+            initialized: Arc::new(tokio::sync::Mutex::new(false)),
+        })
+    }
+
+    async fn initialize(&self) -> Result<Value> {
+        let mut initialized = self.initialized.lock().await;
+        if *initialized {
+            return Ok(json!({"initialized": true}));
+        }
+
+        let request = json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": {
+                    "name": "op-dbus-remote-mcp-client",
+                    "version": "1.0.0"
+                }
+            }
+        });
+
+        let response = self.send_request(request).await?;
+        *initialized = true;
+        Ok(response)
+    }
+
+    async fn send_request(&self, request: Value) -> Result<Value> {
+        let mut req_id = self.request_id.lock().await;
+        let id = *req_id;
+        *req_id += 1;
+        drop(req_id);
+
+        // Update request ID
+        let mut request_obj = request
+            .as_object()
+            .ok_or_else(|| anyhow::anyhow!("Request must be an object"))?
+            .clone();
+        request_obj.insert("id".to_string(), json!(id));
+        let request = json!(request_obj);
+
+        // Build request with optional authentication headers
+        let mut req_builder = self.client.post(&self.url)
+            .json(&request);
+
+        // Add Bearer token if provided (optional)
+        if let Some(ref token) = self.bearer_token {
+            if !token.is_empty() {
+                req_builder = req_builder.header("Authorization", format!("Bearer {}", token));
+            }
+        }
+
+        // Add API key if provided (optional)
+        if let Some(ref key) = self.api_key {
+            if !key.is_empty() {
+                req_builder = req_builder.header("X-API-Key", key);
+            }
+        }
+
+        let response = req_builder
+            .send()
+            .await
+            .context("Failed to send HTTP request")?;
+
+        if !response.status().is_success() {
+            return Err(anyhow::anyhow!(
+                "HTTP error: {} {}",
+                response.status(),
+                response.status().canonical_reason().unwrap_or("Unknown")
+            ));
+        }
+
+        let response_json: Value = response
+            .json()
+            .await
+            .context("Failed to parse response JSON")?;
+
+        // Check for JSON-RPC error
+        if let Some(error) = response_json.get("error") {
+            let error_msg = error.get("message")
+                .and_then(|v| v.as_str())
+                .unwrap_or("Unknown error");
+            return Err(anyhow::anyhow!("MCP error: {}", error_msg));
+        }
+
+        Ok(response_json.get("result").cloned().unwrap_or(json!({})))
+    }
+
+    async fn list_tools(&self) -> Result<Vec<McpToolInfo>> {
+        let request = json!({
+            "jsonrpc": "2.0",
+            "method": "tools/list",
+            "params": {}
+        });
+
+        let response = self.send_request(request).await?;
+
+        if let Some(tools) = response.get("tools").and_then(|t| t.as_array()) {
+            let tool_infos: Result<Vec<McpToolInfo>> = tools
+                .iter()
+                .map(|tool| {
+                    Ok(McpToolInfo {
+                        name: tool["name"]
+                            .as_str()
+                            .ok_or_else(|| anyhow::anyhow!("Missing tool name"))?
+                            .to_string(),
+                        description: tool["description"].as_str().unwrap_or("").to_string(),
+                        input_schema: tool.get("inputSchema").cloned().unwrap_or(json!({})),
+                        server_name: self.name.clone(),
+                    })
+                })
+                .collect();
+
+            return tool_infos;
+        }
+
+        Ok(vec![])
+    }
+
+    async fn call_tool(&self, tool_name: &str, arguments: Value) -> Result<Value> {
+        let request = json!({
+            "jsonrpc": "2.0",
+            "method": "tools/call",
+            "params": {
+                "name": tool_name,
+                "arguments": arguments
+            }
+        });
+
+        self.send_request(request).await
+    }
+}
+
+impl McpClient {
+    /// Configure a remote HTTP/HTTPS MCP server
+    pub async fn configure_remote_server(&self, config: RemoteMcpConfig) -> Result<()> {
+        let mut remote_configs = self.remote_configs.write().await;
+        remote_configs.insert(config.name.clone(), config.clone());
+        drop(remote_configs);
+
+        // Create and initialize remote server connection
+        let server = RemoteMcpServer::new(config.name.clone(), &config)?;
+        server.initialize().await?;
+
+        let mut remote_servers = self.remote_servers.write().await;
+        remote_servers.insert(config.name.clone(), server);
+
+        Ok(())
+    }
+
+    /// Get all remote server configurations
+    pub async fn get_remote_configs(&self) -> Vec<RemoteMcpConfig> {
+        let configs = self.remote_configs.read().await;
+        configs.values().cloned().collect()
+    }
+
+    /// Remove a remote server configuration
+    pub async fn remove_remote_server(&self, name: &str) {
+        let mut configs = self.remote_configs.write().await;
+        configs.remove(name);
+        let mut servers = self.remote_servers.write().await;
+        servers.remove(name);
+    }
+
+    /// List tools from a remote server
+    pub async fn list_remote_tools(&self, server_name: &str) -> Result<Vec<McpToolInfo>> {
+        let servers = self.remote_servers.read().await;
+        if let Some(server) = servers.get(server_name) {
+            server.list_tools().await
+        } else {
+            Err(anyhow::anyhow!("Remote server not found: {}", server_name))
+        }
+    }
+
+    /// Call a tool on a remote server
+    pub async fn call_remote_tool(
+        &self,
+        server_name: &str,
+        tool_name: &str,
+        arguments: Value,
+    ) -> Result<Value> {
+        let servers = self.remote_servers.read().await;
+        if let Some(server) = servers.get(server_name) {
+            server.call_tool(tool_name, arguments).await
+        } else {
+            Err(anyhow::anyhow!("Remote server not found: {}", server_name))
+        }
     }
 }
 

@@ -18,6 +18,9 @@ pub mod state;
 pub mod event_bus;
 pub mod plugin_system;
 
+// Shared HTTP/TLS server
+pub mod http_tls_server;
+
 // Optional modules
 #[cfg(feature = "web")]
 pub mod webui;
