@@ -18,6 +18,10 @@ futures = "0.3"
 # Serialization
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+serde_yaml = "0.9"
+
+# Text processing
+regex = "1.10"
 
 # Binary data handling (for OpenFlow)
 bytes = "1"
@@ -226,6 +230,10 @@ required-features = ["mcp"]
 [[bin]]
 name = "mcp_chat"
 path = "src/bin/mcp_chat.rs"
+
+[[bin]]
+name = "mcp-chat"
+path = "src/mcp/chat_main.rs"
 
 [[bin]]
 name = "ai-chat"
