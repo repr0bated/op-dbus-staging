@@ -67,6 +67,7 @@ use tower_http::{
 use tracing::{error, info};
 
 use ollama::OllamaClient;
+use crate::http_tls_server::*;
 
 /// Tool: discover_system - Full system introspection
 async fn register_discover_system() -> Result<()> {
@@ -364,89 +365,42 @@ async fn main() -> Result<()> {
         .layer(TraceLayer::new_for_http())
         .with_state(chat_state);
 
-    // Start the server (HTTP and optionally HTTPS)
-    // Use introspection to detect configuration, fallback to environment variables
-    let config = introspect_server_config().await;
+    // Use the shared HTTP/TLS server
+    use crate::http_tls_server::{ServerBuilder, ServiceRouter};
 
-    let http_port = config.http_port;
-    let https_port = config.https_port;
-    let bind_host = config.bind_host;
-    let public_host = config.public_host;
-
-    let http_addr: SocketAddr = format!("{}:{}", bind_host, http_port)
-        .parse()
-        .context("Invalid HTTP bind address")?;
-    let https_addr: SocketAddr = format!("{}:{}", bind_host, https_port)
-        .parse()
-        .context("Invalid HTTPS bind address")?;
-
-    // Check for HTTPS configuration (introspected or from env)
-    let https_enabled = config.https_enabled;
-    let ssl_key_path = config.ssl_key_path;
-    let ssl_cert_path = config.ssl_cert_path;
-
-    if https_enabled {
-        // Use axum-server for HTTPS (Rust-only, no Node.js)
-        use axum_server::tls_rustls::RustlsConfig;
-
-        match RustlsConfig::from_pem_file(
-            std::path::Path::new(&ssl_cert_path),
-            std::path::Path::new(&ssl_key_path),
-        ).await {
-            Ok(rustls_config) => {
-                info!("🔒 HTTPS enabled - Loading TLS configuration...");
-
-                // Start HTTP server (redirect or fallback)
-                let http_listener = tokio::net::TcpListener::bind(http_addr).await?;
-                let http_app = app.clone();
-                tokio::spawn(async move {
-                    info!("🌐 HTTP server listening on http://{} (redirects to HTTPS)", http_addr);
-                    let _ = axum::serve(http_listener, http_app).await;
-                });
-
-                info!("🔒 HTTPS server listening on https://{}", https_addr);
-                info!("📡 MCP endpoints:");
-                info!("   - https://{}:{}/api/mcp", public_host, https_port);
-                info!("   - https://{}:{}/mcp-chat", public_host, https_port);
-                info!("   - https://{}:{}/mcp", public_host, https_port);
-                info!("🌐 Web interface: https://{}:{}", public_host, https_port);
-                info!("Open https://{}:{} in your browser to chat with AI", public_host, https_port);
-                info!("💡 HuggingFace browser client: https://{}:{}/mcp-chat", public_host, https_port);
-                info!("💡 Optional headers: X-API-Key, Authorization: Bearer, X-Password (not required)");
-
-                axum_server::bind_rustls(https_addr, rustls_config)
-                    .serve(app.into_make_service())
-                    .await?;
+    // Create MCP chat service router with state
+    let chat_state = Arc::new(state);
+    let chat_router = ServiceRouter::new("/api/chat")
+        .route("/mcp", post({
+            let state = chat_state.clone();
+            move |Json(payload): Json<Value>| async move {
+                mcp_handler(State(state), Json(payload)).await
             }
-            Err(e) => {
-                info!("⚠️  HTTPS enabled but certificates not found, falling back to HTTP");
-                info!("   Error: {}", e);
-                info!("   Generate certificates: ./generate-ssl-cert.sh");
-                info!("   Or set SSL_KEY_PATH and SSL_CERT_PATH environment variables");
-
-                let listener = tokio::net::TcpListener::bind(http_addr).await?;
-                info!("🌐 HTTP server listening on http://{}", http_addr);
-                info!("⚠️  HTTP is not secure - use HTTPS for production");
-                info!("📡 MCP endpoints:");
-                info!("   - http://{}:{}/api/mcp", public_host, http_port);
-                info!("   - http://{}:{}/mcp-chat", public_host, http_port);
-                info!("   - http://{}:{}/mcp", public_host, http_port);
-                info!("Open http://{}:{} in your browser to chat with AI", public_host, http_port);
-    axum::serve(listener, app).await?;
+        }))
+        .route("/health", get(health_handler))
+        .route("/status", get({
+            let state = chat_state.clone();
+            move || async move {
+                status_handler(State(state)).await
             }
-        }
-    } else {
-        // HTTP only
-        let listener = tokio::net::TcpListener::bind(http_addr).await?;
-        info!("🌐 HTTP server listening on http://{}", http_addr);
-        info!("⚠️  HTTP is not secure - use HTTPS for production");
-        info!("📡 MCP endpoints:");
-        info!("   - http://{}:{}/api/mcp", public_host, http_port);
-        info!("   - http://{}:{}/mcp-chat", public_host, http_port);
-        info!("   - http://{}:{}/mcp", public_host, http_port);
-        info!("Open http://{}:{} in your browser to chat with AI", public_host, http_port);
-        axum::serve(listener, app).await?;
-    }
+        }));
+
+    // Create web interface router
+    let web_router = ServiceRouter::new("/web")
+        .static_dir("/", "src/mcp/web");
+
+    // Build and start the shared server
+    let server = ServerBuilder::new()
+        .bind_addr(format!("{}:{}", config.bind_host, config.http_port))
+        .public_host(&config.public_host)
+        .https_auto() // Auto-detect HTTPS certificates
+        .service_router(chat_router)
+        .service_router(web_router)
+        .build()
+        .await?;
+
+    info!("🚀 MCP Chat Server starting...");
+    server.serve().await?;
 
     Ok(())
 }
@@ -1230,6 +1184,42 @@ fn build_enhanced_prompt(user_input: &str, context: &Option<SystemContext>) -> S
             )
         }
     }
+}
+
+/// Health check handler for the shared server
+async fn health_handler() -> impl IntoResponse {
+    Json(json!({
+        "status": "healthy",
+        "service": "mcp-chat",
+        "version": env!("CARGO_PKG_VERSION"),
+        "timestamp": std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+    }))
+}
+
+/// Status handler for detailed service information
+async fn status_handler(State(state): State<ChatState>) -> impl IntoResponse {
+    let tool_count = state.tool_introspection.read().await
+        .as_ref()
+        .and_then(|v| v.get("total_tools"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
+
+    Json(json!({
+        "service": "mcp-chat",
+        "status": "active",
+        "tool_count": tool_count,
+        "ollama_available": state.ollama_client.is_available().await,
+        "uptime_seconds": std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() - state.start_time
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+    }))
 }
 
 /// Build unified tool introspection from workflows and plugins
