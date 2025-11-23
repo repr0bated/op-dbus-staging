@@ -23,6 +23,7 @@ class WorkflowEnhancements {
         this.setupAutoSave();
         this.setupDebugControls();
         this.addAdvancedNodeTypes();
+        this.addMoreAdvancedNodes();
         this.setupExecutionMonitor();
         this.addMoreTemplates();
         this.setupUndoRedo();
@@ -1886,6 +1887,375 @@ class WorkflowEnhancements {
 
         this.mcp.showToast(exportHTML, 'info', 60000);
     }
+
+    // Show hotkeys guide
+    showHotkeysGuide() {
+        const hotkeysHTML = `
+            <div style="padding: 20px; max-width: 700px; max-height: 80vh; overflow-y: auto;">
+                <h3 style="margin-top: 0;">⌨️ Keyboard Shortcuts</h3>
+
+                <div style="display: grid; gap: 15px; margin-top: 20px;">
+                    <div>
+                        <h4 style="margin: 0 0 10px 0; color: var(--color-primary);">Editing</h4>
+                        <div style="display: grid; gap: 6px; font-size: 13px;">
+                            <div style="display: flex; justify-content: space-between; padding: 8px; background: var(--bg-secondary); border-radius: 4px;">
+                                <span>Undo</span>
+                                <kbd style="padding: 2px 8px; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 3px;">Ctrl+Z</kbd>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding: 8px; background: var(--bg-secondary); border-radius: 4px;">
+                                <span>Redo</span>
+                                <kbd style="padding: 2px 8px; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 3px;">Ctrl+Shift+Z</kbd>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding: 8px; background: var(--bg-secondary); border-radius: 4px;">
+                                <span>Save Workflow</span>
+                                <kbd style="padding: 2px 8px; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 3px;">Ctrl+S</kbd>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding: 8px; background: var(--bg-secondary); border-radius: 4px;">
+                                <span>Delete Selected Node</span>
+                                <kbd style="padding: 2px 8px; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 3px;">Delete</kbd>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding: 8px; background: var(--bg-secondary); border-radius: 4px;">
+                                <span>Duplicate Selected Node</span>
+                                <kbd style="padding: 2px 8px; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 3px;">Ctrl+D</kbd>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 style="margin: 0 0 10px 0; color: var(--color-primary);">Features</h4>
+                        <div style="display: grid; gap: 6px; font-size: 13px;">
+                            <div style="padding: 8px; background: var(--bg-secondary); border-radius: 4px;">
+                                <strong>Debug Mode:</strong> Toggle debug panel for step-by-step execution
+                            </div>
+                            <div style="padding: 8px; background: var(--bg-secondary); border-radius: 4px;">
+                                <strong>Validation:</strong> Check workflow for errors and warnings
+                            </div>
+                            <div style="padding: 8px; background: var(--bg-secondary); border-radius: 4px;">
+                                <strong>Search:</strong> Filter nodes by label, type, or configuration
+                            </div>
+                            <div style="padding: 8px; background: var(--bg-secondary); border-radius: 4px;">
+                                <strong>Versions:</strong> Save and restore workflow versions
+                            </div>
+                            <div style="padding: 8px; background: var(--bg-secondary); border-radius: 4px;">
+                                <strong>Groups:</strong> Organize nodes into visual groups
+                            </div>
+                            <div style="padding: 8px; background: var(--bg-secondary); border-radius: 4px;">
+                                <strong>Path Tracing:</strong> Visualize execution flow from trigger
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 style="margin: 0 0 10px 0; color: var(--color-primary);">Tips</h4>
+                        <ul style="margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.6;">
+                            <li>Drag nodes from the palette to the canvas</li>
+                            <li>Click output ports and drag to input ports to create connections</li>
+                            <li>Double-click nodes to edit their properties</li>
+                            <li>Use auto-save to prevent data loss (saves every 30 seconds)</li>
+                            <li>Export workflows in JSON, YAML, or Markdown formats</li>
+                            <li>Create groups to organize complex workflows</li>
+                            <li>Add comments to document your workflow logic</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        this.mcp.showToast(hotkeysHTML, 'info', 60000);
+    }
+
+    // Show quick actions menu
+    showQuickActions() {
+        const actionsHTML = `
+            <div style="padding: 20px; max-width: 600px;">
+                <h3 style="margin-top: 0;">⚡ Quick Actions</h3>
+
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 20px;">
+                    <button class="btn btn-sm" style="text-align: left; padding: 15px;" onclick="
+                        window.mcp.validateWorkflow();
+                        this.closest('.toast').remove();
+                    ">
+                        <div style="font-size: 20px; margin-bottom: 5px;">✓</div>
+                        <strong>Validate</strong>
+                        <div style="font-size: 11px; color: var(--text-secondary); margin-top: 3px;">Check for errors</div>
+                    </button>
+
+                    <button class="btn btn-sm" style="text-align: left; padding: 15px;" onclick="
+                        window.mcp.executeWorkflow();
+                        this.closest('.toast').remove();
+                    ">
+                        <div style="font-size: 20px; margin-bottom: 5px;">▶️</div>
+                        <strong>Execute</strong>
+                        <div style="font-size: 11px; color: var(--text-secondary); margin-top: 3px;">Run workflow</div>
+                    </button>
+
+                    <button class="btn btn-sm" style="text-align: left; padding: 15px;" onclick="
+                        window.mcp.saveWorkflow();
+                        this.closest('.toast').remove();
+                    ">
+                        <div style="font-size: 20px; margin-bottom: 5px;">💾</div>
+                        <strong>Save</strong>
+                        <div style="font-size: 11px; color: var(--text-secondary); margin-top: 3px;">Save current state</div>
+                    </button>
+
+                    <button class="btn btn-sm" style="text-align: left; padding: 15px;" onclick="
+                        window.workflowEnhancements.saveWorkflowVersion('Quick Save ' + new Date().toLocaleTimeString());
+                        this.closest('.toast').remove();
+                    ">
+                        <div style="font-size: 20px; margin-bottom: 5px;">📚</div>
+                        <strong>Version</strong>
+                        <div style="font-size: 11px; color: var(--text-secondary); margin-top: 3px;">Save version</div>
+                    </button>
+
+                    <button class="btn btn-sm" style="text-align: left; padding: 15px;" onclick="
+                        window.mcp.showTemplateBrowser();
+                        this.closest('.toast').remove();
+                    ">
+                        <div style="font-size: 20px; margin-bottom: 5px;">📋</div>
+                        <strong>Templates</strong>
+                        <div style="font-size: 11px; color: var(--text-secondary); margin-top: 3px;">Browse templates</div>
+                    </button>
+
+                    <button class="btn btn-sm" style="text-align: left; padding: 15px;" onclick="
+                        window.mcp.showWorkflowStats();
+                        this.closest('.toast').remove();
+                    ">
+                        <div style="font-size: 20px; margin-bottom: 5px;">📊</div>
+                        <strong>Statistics</strong>
+                        <div style="font-size: 11px; color: var(--text-secondary); margin-top: 3px;">View stats</div>
+                    </button>
+
+                    <button class="btn btn-sm" style="text-align: left; padding: 15px;" onclick="
+                        window.mcp.searchWorkflowNodes();
+                        this.closest('.toast').remove();
+                    ">
+                        <div style="font-size: 20px; margin-bottom: 5px;">🔍</div>
+                        <strong>Search</strong>
+                        <div style="font-size: 11px; color: var(--text-secondary); margin-top: 3px;">Find nodes</div>
+                    </button>
+
+                    <button class="btn btn-sm" style="text-align: left; padding: 15px;" onclick="
+                        window.mcp.showExportFormats();
+                        this.closest('.toast').remove();
+                    ">
+                        <div style="font-size: 20px; margin-bottom: 5px;">📤</div>
+                        <strong>Export</strong>
+                        <div style="font-size: 11px; color: var(--text-secondary); margin-top: 3px;">Export workflow</div>
+                    </button>
+                </div>
+            </div>
+        `;
+
+        this.mcp.showToast(actionsHTML, 'info', 60000);
+    }
+
+    // Add more advanced node types
+    addMoreAdvancedNodes() {
+        const additionalNodes = {
+            'json-parse': {
+                label: 'JSON Parse',
+                icon: '📋',
+                inputs: 1,
+                outputs: 1,
+                defaultConfig: { path: '' }
+            },
+            'json-stringify': {
+                label: 'JSON Stringify',
+                icon: '📝',
+                inputs: 1,
+                outputs: 1,
+                defaultConfig: { indent: 2 }
+            },
+            'regex-match': {
+                label: 'Regex Match',
+                icon: '🔤',
+                inputs: 1,
+                outputs: 1,
+                defaultConfig: { pattern: '.*', flags: 'g' }
+            },
+            'delay': {
+                label: 'Delay',
+                icon: '⏱️',
+                inputs: 1,
+                outputs: 1,
+                defaultConfig: { duration: 1000 }
+            },
+            'parallel': {
+                label: 'Parallel Execution',
+                icon: '🔀',
+                inputs: 1,
+                outputs: 3,
+                defaultConfig: { branches: 3 }
+            },
+            'batch': {
+                label: 'Batch Processing',
+                icon: '📦',
+                inputs: 1,
+                outputs: 1,
+                defaultConfig: { batchSize: 10 }
+            },
+            'sort': {
+                label: 'Sort',
+                icon: '🔢',
+                inputs: 1,
+                outputs: 1,
+                defaultConfig: { key: 'value', order: 'asc' }
+            },
+            'aggregate': {
+                label: 'Aggregate',
+                icon: '📊',
+                inputs: 1,
+                outputs: 1,
+                defaultConfig: { operation: 'sum', field: 'value' }
+            },
+            'crypto-hash': {
+                label: 'Hash',
+                icon: '🔐',
+                inputs: 1,
+                outputs: 1,
+                defaultConfig: { algorithm: 'sha256' }
+            },
+            'crypto-encrypt': {
+                label: 'Encrypt',
+                icon: '🔒',
+                inputs: 1,
+                outputs: 1,
+                defaultConfig: { algorithm: 'aes-256-cbc', key: '' }
+            },
+            'crypto-decrypt': {
+                label: 'Decrypt',
+                icon: '🔓',
+                inputs: 1,
+                outputs: 1,
+                defaultConfig: { algorithm: 'aes-256-cbc', key: '' }
+            },
+            'compress': {
+                label: 'Compress',
+                icon: '🗜️',
+                inputs: 1,
+                outputs: 1,
+                defaultConfig: { format: 'gzip' }
+            },
+            'decompress': {
+                label: 'Decompress',
+                icon: '📂',
+                inputs: 1,
+                outputs: 1,
+                defaultConfig: { format: 'gzip' }
+            },
+            'queue': {
+                label: 'Queue',
+                icon: '📥',
+                inputs: 1,
+                outputs: 1,
+                defaultConfig: { maxSize: 100, strategy: 'fifo' }
+            },
+            'rate-limit': {
+                label: 'Rate Limit',
+                icon: '⏳',
+                inputs: 1,
+                outputs: 1,
+                defaultConfig: { maxRequests: 10, windowMs: 60000 }
+            }
+        };
+
+        // Merge with existing node types
+        Object.assign(this.advancedNodeTypes, additionalNodes);
+
+        return additionalNodes;
+    }
+
+    // Show comprehensive help
+    showComprehensiveHelp() {
+        const helpHTML = `
+            <div style="padding: 20px; max-width: 800px; max-height: 80vh; overflow-y: auto;">
+                <h3 style="margin-top: 0;">📖 Workflow Builder Guide</h3>
+
+                <div style="display: grid; gap: 20px; margin-top: 20px;">
+                    <section>
+                        <h4 style="margin: 0 0 10px 0; color: var(--color-primary);">Getting Started</h4>
+                        <p style="margin: 0; font-size: 13px; line-height: 1.6;">
+                            The Workflow Builder lets you create automated D-Bus workflows by connecting nodes.
+                            Each node performs a specific task, and connections define the data flow.
+                        </p>
+                    </section>
+
+                    <section>
+                        <h4 style="margin: 0 0 10px 0; color: var(--color-primary);">Node Categories</h4>
+                        <div style="font-size: 13px;">
+                            <div style="padding: 8px; background: var(--bg-secondary); border-radius: 4px; margin-bottom: 6px;">
+                                <strong>🎯 Triggers:</strong> Start workflow execution (Manual, D-Bus Signal, Timer, Webhook)
+                            </div>
+                            <div style="padding: 8px; background: var(--bg-secondary); border-radius: 4px; margin-bottom: 6px;">
+                                <strong>🌐 HTTP & Network:</strong> Make API calls and handle webhooks
+                            </div>
+                            <div style="padding: 8px; background: var(--bg-secondary); border-radius: 4px; margin-bottom: 6px;">
+                                <strong>📁 Files:</strong> Read and write files with various encodings
+                            </div>
+                            <div style="padding: 8px; background: var(--bg-secondary); border-radius: 4px; margin-bottom: 6px;">
+                                <strong>🔄 Data Processing:</strong> Filter, map, reduce, and transform data
+                            </div>
+                            <div style="padding: 8px; background: var(--bg-secondary); border-radius: 4px; margin-bottom: 6px;">
+                                <strong>⚙️ Advanced:</strong> Loops, caching, error handling, database queries
+                            </div>
+                            <div style="padding: 8px; background: var(--bg-secondary); border-radius: 4px; margin-bottom: 6px;">
+                                <strong>📊 D-Bus:</strong> Call methods, listen to signals, read properties
+                            </div>
+                            <div style="padding: 8px; background: var(--bg-secondary); border-radius: 4px; margin-bottom: 6px;">
+                                <strong>📤 Output:</strong> Send notifications, log messages, display results
+                            </div>
+                        </div>
+                    </section>
+
+                    <section>
+                        <h4 style="margin: 0 0 10px 0; color: var(--color-primary);">Features</h4>
+                        <ul style="margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.8;">
+                            <li><strong>Auto-save:</strong> Saves every 30 seconds to prevent data loss</li>
+                            <li><strong>Undo/Redo:</strong> Up to 50 steps of history</li>
+                            <li><strong>Validation:</strong> Checks for errors, cycles, and missing configs</li>
+                            <li><strong>Templates:</strong> 11 pre-built workflows for common use cases</li>
+                            <li><strong>Versioning:</strong> Save up to 20 named versions</li>
+                            <li><strong>Search:</strong> Find nodes by label, type, or config</li>
+                            <li><strong>Groups:</strong> Organize nodes visually</li>
+                            <li><strong>Comments:</strong> Add documentation to workflows</li>
+                            <li><strong>Path Tracing:</strong> Visualize execution flow</li>
+                            <li><strong>Export:</strong> JSON, YAML, or Markdown formats</li>
+                            <li><strong>Debug Mode:</strong> Step-by-step execution with logging</li>
+                            <li><strong>Statistics:</strong> Track executions and performance</li>
+                        </ul>
+                    </section>
+
+                    <section>
+                        <h4 style="margin: 0 0 10px 0; color: var(--color-primary);">Quick Start</h4>
+                        <ol style="margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.8;">
+                            <li>Open a trigger category in the node palette (left sidebar)</li>
+                            <li>Drag a trigger node (e.g., "Manual Start") to the canvas</li>
+                            <li>Add processing nodes (D-Bus call, HTTP request, etc.)</li>
+                            <li>Connect nodes by dragging from output ports to input ports</li>
+                            <li>Double-click nodes to configure their properties</li>
+                            <li>Click "Validate" to check for errors</li>
+                            <li>Click "Execute" to run your workflow</li>
+                        </ol>
+                    </section>
+
+                    <section style="padding: 15px; background: rgba(59, 130, 246, 0.1); border-left: 3px solid #3b82f6; border-radius: 6px;">
+                        <h4 style="margin: 0 0 10px 0;">💡 Pro Tips</h4>
+                        <ul style="margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.8;">
+                            <li>Use Ctrl+S to save frequently while building</li>
+                            <li>Create versions before major changes</li>
+                            <li>Use the Stats dashboard to monitor workflow health</li>
+                            <li>Group related nodes to keep workflows organized</li>
+                            <li>Add comments to explain complex logic</li>
+                            <li>Use path tracing to understand execution flow</li>
+                            <li>Export to Markdown for documentation</li>
+                        </ul>
+                    </section>
+                </div>
+            </div>
+        `;
+
+        this.mcp.showToast(helpHTML, 'info', 120000);
+    }
 }
 
 // Initialize workflow enhancements when DOM is ready
@@ -1918,4 +2288,7 @@ if (typeof window.mcp !== 'undefined') {
     window.mcp.addWorkflowComment = () => window.workflowEnhancements.showAddComment();
     window.mcp.showExecutionPath = () => window.workflowEnhancements.showExecutionPath();
     window.mcp.showExportFormats = () => window.workflowEnhancements.showExportFormats();
+    window.mcp.showHotkeysGuide = () => window.workflowEnhancements.showHotkeysGuide();
+    window.mcp.showQuickActions = () => window.workflowEnhancements.showQuickActions();
+    window.mcp.showComprehensiveHelp = () => window.workflowEnhancements.showComprehensiveHelp();
 }
