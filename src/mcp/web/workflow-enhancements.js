@@ -520,6 +520,172 @@ class WorkflowEnhancements {
                     { from: 'node_2', to: 'node_3', fromPort: '0', toPort: '0' },
                     { from: 'node_1', to: 'node_4', fromPort: '1', toPort: '0' }
                 ]
+            },
+            'real-time-analytics': {
+                name: 'Real-time Analytics',
+                description: 'Process and analyze streaming data',
+                nodes: [
+                    { id: 'node_0', type: 'webhook', x: 100, y: 200, width: 120, height: 60, label: 'Data Stream', icon: '🪝', inputs: 0, outputs: 1, config: { url: '/stream', method: 'POST' } },
+                    { id: 'node_1', type: 'json-parse', x: 300, y: 200, width: 120, height: 60, label: 'Parse JSON', icon: '📋', inputs: 1, outputs: 1, config: { path: '' } },
+                    { id: 'node_2', type: 'aggregate', x: 500, y: 200, width: 120, height: 60, label: 'Aggregate', icon: '📊', inputs: 1, outputs: 1, config: { operation: 'sum', field: 'value' } },
+                    { id: 'node_3', type: 'cache', x: 700, y: 200, width: 120, height: 60, label: 'Cache Stats', icon: '🗄️', inputs: 1, outputs: 1, config: { key: 'analytics', ttl: 60 } },
+                    { id: 'node_4', type: 'output-log', x: 900, y: 200, width: 120, height: 60, label: 'Log', icon: '📝', inputs: 1, outputs: 0, config: { level: 'info' } }
+                ],
+                connections: [
+                    { from: 'node_0', to: 'node_1', fromPort: '0', toPort: '0' },
+                    { from: 'node_1', to: 'node_2', fromPort: '0', toPort: '0' },
+                    { from: 'node_2', to: 'node_3', fromPort: '0', toPort: '0' },
+                    { from: 'node_3', to: 'node_4', fromPort: '0', toPort: '0' }
+                ]
+            },
+            'secure-api-pipeline': {
+                name: 'Secure API Pipeline',
+                description: 'Encrypted API calls with authentication',
+                nodes: [
+                    { id: 'node_0', type: 'trigger-manual', x: 100, y: 200, width: 120, height: 60, label: 'Start', icon: '▶️', inputs: 0, outputs: 1, config: {} },
+                    { id: 'node_1', type: 'crypto-hash', x: 300, y: 200, width: 120, height: 60, label: 'Hash API Key', icon: '🔐', inputs: 1, outputs: 1, config: { algorithm: 'sha256' } },
+                    { id: 'node_2', type: 'http-request', x: 500, y: 200, width: 120, height: 60, label: 'API Call', icon: '🌐', inputs: 1, outputs: 1, config: { url: 'https://api.example.com/data', method: 'GET' } },
+                    { id: 'node_3', type: 'crypto-decrypt', x: 700, y: 200, width: 120, height: 60, label: 'Decrypt', icon: '🔓', inputs: 1, outputs: 1, config: { algorithm: 'aes-256-cbc', key: '' } },
+                    { id: 'node_4', type: 'output-log', x: 900, y: 200, width: 120, height: 60, label: 'Log Result', icon: '📝', inputs: 1, outputs: 0, config: { level: 'info' } }
+                ],
+                connections: [
+                    { from: 'node_0', to: 'node_1', fromPort: '0', toPort: '0' },
+                    { from: 'node_1', to: 'node_2', fromPort: '0', toPort: '0' },
+                    { from: 'node_2', to: 'node_3', fromPort: '0', toPort: '0' },
+                    { from: 'node_3', to: 'node_4', fromPort: '0', toPort: '0' }
+                ]
+            },
+            'queue-processor': {
+                name: 'Queue Processor',
+                description: 'Process messages from queue with rate limiting',
+                nodes: [
+                    { id: 'node_0', type: 'timer', x: 100, y: 200, width: 120, height: 60, label: 'Scheduler', icon: '⏰', inputs: 0, outputs: 1, config: { interval: 5000, repeat: true } },
+                    { id: 'node_1', type: 'queue', x: 300, y: 200, width: 120, height: 60, label: 'Message Queue', icon: '📥', inputs: 1, outputs: 1, config: { maxSize: 100, strategy: 'fifo' } },
+                    { id: 'node_2', type: 'rate-limit', x: 500, y: 200, width: 120, height: 60, label: 'Rate Limit', icon: '⏳', inputs: 1, outputs: 1, config: { maxRequests: 10, windowMs: 60000 } },
+                    { id: 'node_3', type: 'transform', x: 700, y: 200, width: 120, height: 60, label: 'Process', icon: '🔄', inputs: 1, outputs: 1, config: { script: 'return processMessage(input);' } },
+                    { id: 'node_4', type: 'output-log', x: 900, y: 200, width: 120, height: 60, label: 'Log', icon: '📝', inputs: 1, outputs: 0, config: { level: 'info' } }
+                ],
+                connections: [
+                    { from: 'node_0', to: 'node_1', fromPort: '0', toPort: '0' },
+                    { from: 'node_1', to: 'node_2', fromPort: '0', toPort: '0' },
+                    { from: 'node_2', to: 'node_3', fromPort: '0', toPort: '0' },
+                    { from: 'node_3', to: 'node_4', fromPort: '0', toPort: '0' }
+                ]
+            },
+            'batch-data-processor': {
+                name: 'Batch Data Processor',
+                description: 'Process large datasets in batches',
+                nodes: [
+                    { id: 'node_0', type: 'trigger-manual', x: 100, y: 200, width: 120, height: 60, label: 'Start', icon: '▶️', inputs: 0, outputs: 1, config: {} },
+                    { id: 'node_1', type: 'file-read', x: 300, y: 200, width: 120, height: 60, label: 'Read Data', icon: '📖', inputs: 1, outputs: 1, config: { path: '/data/large-file.json', encoding: 'utf8' } },
+                    { id: 'node_2', type: 'batch', x: 500, y: 200, width: 120, height: 60, label: 'Batch', icon: '📦', inputs: 1, outputs: 1, config: { batchSize: 100 } },
+                    { id: 'node_3', type: 'map', x: 700, y: 200, width: 120, height: 60, label: 'Transform', icon: '🗺️', inputs: 1, outputs: 1, config: { transform: 'item.value * 2' } },
+                    { id: 'node_4', type: 'file-write', x: 900, y: 200, width: 120, height: 60, label: 'Write Output', icon: '💾', inputs: 1, outputs: 1, config: { path: '/data/processed.json', encoding: 'utf8' } }
+                ],
+                connections: [
+                    { from: 'node_0', to: 'node_1', fromPort: '0', toPort: '0' },
+                    { from: 'node_1', to: 'node_2', fromPort: '0', toPort: '0' },
+                    { from: 'node_2', to: 'node_3', fromPort: '0', toPort: '0' },
+                    { from: 'node_3', to: 'node_4', fromPort: '0', toPort: '0' }
+                ]
+            },
+            'regex-data-extraction': {
+                name: 'Regex Data Extraction',
+                description: 'Extract patterns from text using regex',
+                nodes: [
+                    { id: 'node_0', type: 'trigger-manual', x: 100, y: 200, width: 120, height: 60, label: 'Start', icon: '▶️', inputs: 0, outputs: 1, config: {} },
+                    { id: 'node_1', type: 'file-read', x: 300, y: 200, width: 120, height: 60, label: 'Read Log', icon: '📖', inputs: 1, outputs: 1, config: { path: '/var/log/app.log', encoding: 'utf8' } },
+                    { id: 'node_2', type: 'regex-match', x: 500, y: 200, width: 120, height: 60, label: 'Extract IPs', icon: '🔤', inputs: 1, outputs: 1, config: { pattern: '\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}', flags: 'g' } },
+                    { id: 'node_3', type: 'filter', x: 700, y: 200, width: 120, height: 60, label: 'Filter Unique', icon: '🔍', inputs: 1, outputs: 1, config: { condition: 'unique(item)' } },
+                    { id: 'node_4', type: 'json-stringify', x: 900, y: 200, width: 120, height: 60, label: 'Stringify', icon: '📝', inputs: 1, outputs: 1, config: { indent: 2 } },
+                    { id: 'node_5', type: 'file-write', x: 1100, y: 200, width: 120, height: 60, label: 'Save Results', icon: '💾', inputs: 1, outputs: 1, config: { path: '/tmp/ips.json', encoding: 'utf8' } }
+                ],
+                connections: [
+                    { from: 'node_0', to: 'node_1', fromPort: '0', toPort: '0' },
+                    { from: 'node_1', to: 'node_2', fromPort: '0', toPort: '0' },
+                    { from: 'node_2', to: 'node_3', fromPort: '0', toPort: '0' },
+                    { from: 'node_3', to: 'node_4', fromPort: '0', toPort: '0' },
+                    { from: 'node_4', to: 'node_5', fromPort: '0', toPort: '0' }
+                ]
+            },
+            'sorted-aggregation': {
+                name: 'Sorted Aggregation',
+                description: 'Sort and aggregate data pipeline',
+                nodes: [
+                    { id: 'node_0', type: 'trigger-manual', x: 100, y: 200, width: 120, height: 60, label: 'Start', icon: '▶️', inputs: 0, outputs: 1, config: {} },
+                    { id: 'node_1', type: 'http-request', x: 300, y: 200, width: 120, height: 60, label: 'Fetch Data', icon: '🌐', inputs: 1, outputs: 1, config: { url: 'https://api.example.com/items', method: 'GET' } },
+                    { id: 'node_2', type: 'sort', x: 500, y: 200, width: 120, height: 60, label: 'Sort', icon: '🔢', inputs: 1, outputs: 1, config: { key: 'timestamp', order: 'desc' } },
+                    { id: 'node_3', type: 'filter', x: 700, y: 200, width: 120, height: 60, label: 'Filter Recent', icon: '🔍', inputs: 1, outputs: 1, config: { condition: 'item.timestamp > Date.now() - 86400000' } },
+                    { id: 'node_4', type: 'aggregate', x: 900, y: 200, width: 120, height: 60, label: 'Aggregate', icon: '📊', inputs: 1, outputs: 1, config: { operation: 'average', field: 'value' } },
+                    { id: 'node_5', type: 'output-notification', x: 1100, y: 200, width: 120, height: 60, label: 'Notify', icon: '🔔', inputs: 1, outputs: 0, config: { title: 'Daily Average', message: '' } }
+                ],
+                connections: [
+                    { from: 'node_0', to: 'node_1', fromPort: '0', toPort: '0' },
+                    { from: 'node_1', to: 'node_2', fromPort: '0', toPort: '0' },
+                    { from: 'node_2', to: 'node_3', fromPort: '0', toPort: '0' },
+                    { from: 'node_3', to: 'node_4', fromPort: '0', toPort: '0' },
+                    { from: 'node_4', to: 'node_5', fromPort: '0', toPort: '0' }
+                ]
+            },
+            'delayed-retry': {
+                name: 'Delayed Retry',
+                description: 'Retry failed operations with delay',
+                nodes: [
+                    { id: 'node_0', type: 'trigger-manual', x: 100, y: 200, width: 120, height: 60, label: 'Start', icon: '▶️', inputs: 0, outputs: 1, config: {} },
+                    { id: 'node_1', type: 'http-request', x: 300, y: 200, width: 120, height: 60, label: 'API Call', icon: '🌐', inputs: 1, outputs: 1, config: { url: 'https://api.example.com/data', method: 'GET' } },
+                    { id: 'node_2', type: 'error-handler', x: 500, y: 200, width: 120, height: 60, label: 'Error Handler', icon: '🚨', inputs: 1, outputs: 2, config: { onError: 'retry', retry: 3 } },
+                    { id: 'node_3', type: 'output-log', x: 700, y: 100, width: 120, height: 60, label: 'Success', icon: '📝', inputs: 1, outputs: 0, config: { level: 'info' } },
+                    { id: 'node_4', type: 'delay', x: 700, y: 300, width: 120, height: 60, label: 'Wait', icon: '⏱️', inputs: 1, outputs: 1, config: { duration: 5000 } },
+                    { id: 'node_5', type: 'output-notification', x: 900, y: 300, width: 120, height: 60, label: 'Notify Failure', icon: '🔔', inputs: 1, outputs: 0, config: { title: 'API Error', message: 'All retries failed' } }
+                ],
+                connections: [
+                    { from: 'node_0', to: 'node_1', fromPort: '0', toPort: '0' },
+                    { from: 'node_1', to: 'node_2', fromPort: '0', toPort: '0' },
+                    { from: 'node_2', to: 'node_3', fromPort: '0', toPort: '0' },
+                    { from: 'node_2', to: 'node_4', fromPort: '1', toPort: '0' },
+                    { from: 'node_4', to: 'node_5', fromPort: '0', toPort: '0' }
+                ]
+            },
+            'parallel-processing': {
+                name: 'Parallel Processing',
+                description: 'Process multiple API endpoints in parallel',
+                nodes: [
+                    { id: 'node_0', type: 'trigger-manual', x: 100, y: 300, width: 120, height: 60, label: 'Start', icon: '▶️', inputs: 0, outputs: 1, config: {} },
+                    { id: 'node_1', type: 'parallel', x: 300, y: 300, width: 120, height: 60, label: 'Fork', icon: '🔀', inputs: 1, outputs: 3, config: { branches: 3 } },
+                    { id: 'node_2', type: 'http-request', x: 500, y: 150, width: 120, height: 60, label: 'API 1', icon: '🌐', inputs: 1, outputs: 1, config: { url: 'https://api1.example.com', method: 'GET' } },
+                    { id: 'node_3', type: 'http-request', x: 500, y: 300, width: 120, height: 60, label: 'API 2', icon: '🌐', inputs: 1, outputs: 1, config: { url: 'https://api2.example.com', method: 'GET' } },
+                    { id: 'node_4', type: 'http-request', x: 500, y: 450, width: 120, height: 60, label: 'API 3', icon: '🌐', inputs: 1, outputs: 1, config: { url: 'https://api3.example.com', method: 'GET' } },
+                    { id: 'node_5', type: 'merge', x: 700, y: 300, width: 120, height: 60, label: 'Combine', icon: '🔀', inputs: 2, outputs: 1, config: { strategy: 'combine' } },
+                    { id: 'node_6', type: 'output-log', x: 900, y: 300, width: 120, height: 60, label: 'Log Results', icon: '📝', inputs: 1, outputs: 0, config: { level: 'info' } }
+                ],
+                connections: [
+                    { from: 'node_0', to: 'node_1', fromPort: '0', toPort: '0' },
+                    { from: 'node_1', to: 'node_2', fromPort: '0', toPort: '0' },
+                    { from: 'node_1', to: 'node_3', fromPort: '1', toPort: '0' },
+                    { from: 'node_1', to: 'node_4', fromPort: '2', toPort: '0' },
+                    { from: 'node_2', to: 'node_5', fromPort: '0', toPort: '0' },
+                    { from: 'node_3', to: 'node_5', fromPort: '0', toPort: '1' },
+                    { from: 'node_5', to: 'node_6', fromPort: '0', toPort: '0' }
+                ]
+            },
+            'compression-pipeline': {
+                name: 'Compression Pipeline',
+                description: 'Compress data before storage',
+                nodes: [
+                    { id: 'node_0', type: 'trigger-manual', x: 100, y: 200, width: 120, height: 60, label: 'Start', icon: '▶️', inputs: 0, outputs: 1, config: {} },
+                    { id: 'node_1', type: 'http-request', x: 300, y: 200, width: 120, height: 60, label: 'Fetch Data', icon: '🌐', inputs: 1, outputs: 1, config: { url: 'https://api.example.com/large-data', method: 'GET' } },
+                    { id: 'node_2', type: 'json-stringify', x: 500, y: 200, width: 120, height: 60, label: 'Stringify', icon: '📝', inputs: 1, outputs: 1, config: { indent: 0 } },
+                    { id: 'node_3', type: 'compress', x: 700, y: 200, width: 120, height: 60, label: 'Compress', icon: '🗜️', inputs: 1, outputs: 1, config: { format: 'gzip' } },
+                    { id: 'node_4', type: 'file-write', x: 900, y: 200, width: 120, height: 60, label: 'Save', icon: '💾', inputs: 1, outputs: 1, config: { path: '/data/compressed.gz', encoding: 'binary' } },
+                    { id: 'node_5', type: 'output-notification', x: 1100, y: 200, width: 120, height: 60, label: 'Notify', icon: '🔔', inputs: 1, outputs: 0, config: { title: 'Saved', message: 'Data compressed and saved' } }
+                ],
+                connections: [
+                    { from: 'node_0', to: 'node_1', fromPort: '0', toPort: '0' },
+                    { from: 'node_1', to: 'node_2', fromPort: '0', toPort: '0' },
+                    { from: 'node_2', to: 'node_3', fromPort: '0', toPort: '0' },
+                    { from: 'node_3', to: 'node_4', fromPort: '0', toPort: '0' },
+                    { from: 'node_4', to: 'node_5', fromPort: '0', toPort: '0' }
+                ]
             }
         };
     }
