@@ -271,7 +271,7 @@ impl IntrospectionPluginListener {
 }
 
 #[async_trait::async_trait]
-impl crate::mcp::orchestrator::EventListener for IntrospectionPluginListener {
+impl crate::mcp::chat::orchestrator::EventListener for IntrospectionPluginListener {
     async fn on_agent_spawned(&self, _agent_id: &str, _agent_type: &str) {
         // Not relevant for plugin creation
     }

@@ -35,7 +35,7 @@
 pub mod server;
 pub mod router;
 pub mod tls;
-pub mod middleware;
+pub mod request_filters;
 pub mod health;
 pub mod metrics;
 
@@ -61,8 +61,8 @@ pub enum ServerError {
     BindError(std::io::Error),
     #[error("Router configuration error: {0}")]
     RouterError(String),
-    #[error("Middleware error: {0}")]
-    MiddlewareError(String),
+    #[error("Request filter error: {0}")]
+    RequestFilterError(String),
 }
 
 pub type Result<T> = std::result::Result<T, ServerError>;

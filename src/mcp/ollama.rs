@@ -168,6 +168,11 @@ impl OllamaClient {
         }
     }
 
+    /// Check if the AI service is available (alias for health_check)
+    pub async fn is_available(&self) -> bool {
+        self.health_check().await.unwrap_or(false)
+    }
+
     /// List available models (local or cloud)
     pub async fn list_models(&self) -> Result<Vec<ModelInfo>> {
         #[derive(Deserialize)]

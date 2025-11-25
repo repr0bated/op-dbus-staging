@@ -1,0 +1,877 @@
+   Compiling op-dbus v0.1.0 (/home/jeremy/git/op-dbus-staging)
+warning: unused imports: `ApplyResult`, `Checkpoint`, `PluginCapabilities`, `StateAction`, `StateDiff`, and `StatePlugin`
+ --> src/state/auto_plugin.rs:6:5
+  |
+6 |     ApplyResult, Checkpoint, PluginCapabilities, StateAction, StateDiff, StatePlugin,
+  |     ^^^^^^^^^^^  ^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^  ^^^^^^^^^  ^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `Context` and `Result`
+ --> src/state/auto_plugin.rs:8:14
+  |
+8 | use anyhow::{Context, Result};
+  |              ^^^^^^^  ^^^^^^
+
+warning: unused import: `async_trait::async_trait`
+ --> src/state/auto_plugin.rs:9:5
+  |
+9 | use async_trait::async_trait;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `serde_json::Value`
+  --> src/state/auto_plugin.rs:10:5
+   |
+10 | use serde_json::Value;
+   |     ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `std::sync::Arc`
+  --> src/state/auto_plugin.rs:11:5
+   |
+11 | use std::sync::Arc;
+   |     ^^^^^^^^^^^^^^
+
+warning: unused import: `zbus::Connection`
+  --> src/state/auto_plugin.rs:12:5
+   |
+12 | use zbus::Connection;
+   |     ^^^^^^^^^^^^^^^^
+
+warning: unused import: `zbus::Proxy`
+  --> src/state/auto_plugin.rs:13:5
+   |
+13 | use zbus::Proxy;
+   |     ^^^^^^^^^^^
+
+warning: unexpected `cfg` condition value: `packagekit`
+ --> src/plugins/mod.rs:7:7
+  |
+7 | #[cfg(feature = "packagekit")]
+  |       ^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: expected values for `feature` are: `cache`, `default`, `hf-hub`, `indicatif`, `mcp`, `minimal`, `ml`, `ndarray`, `openflow`, `ort`, `streaming-blockchain`, `tokenizers`, `toml`, and `web`
+  = help: consider adding `packagekit` as a feature in `Cargo.toml`
+  = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+  = note: `#[warn(unexpected_cfgs)]` on by default
+
+warning: unexpected `cfg` condition value: `packagekit`
+  --> src/plugins/mod.rs:13:7
+   |
+13 | #[cfg(feature = "packagekit")]
+   |       ^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cache`, `default`, `hf-hub`, `indicatif`, `mcp`, `minimal`, `ml`, `ndarray`, `openflow`, `ort`, `streaming-blockchain`, `tokenizers`, `toml`, and `web`
+   = help: consider adding `packagekit` as a feature in `Cargo.toml`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+
+warning: unused import: `Context`
+ --> src/plugins/dbus_auto.rs:6:14
+  |
+6 | use anyhow::{Context, Result};
+  |              ^^^^^^^
+
+warning: unused import: `PluginMetadata`
+  --> src/plugins/dbus_auto.rs:11:82
+   |
+11 | use crate::plugin_system::{Plugin, Change, ValidationResult, PluginCapabilities, PluginMetadata, PluginContext};
+   |                                                                                  ^^^^^^^^^^^^^^
+
+warning: unused import: `crate::mcp::chat::introspection_parser::IntrospectionParser`
+  --> src/plugins/dbus_auto.rs:12:5
+   |
+12 | use crate::mcp::chat::introspection_parser::IntrospectionParser;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `PluginMetadata`
+  --> src/plugins/network.rs:14:82
+   |
+14 | use crate::plugin_system::{Plugin, Change, ValidationResult, PluginCapabilities, PluginMetadata, PluginContext};
+   |                                                                                  ^^^^^^^^^^^^^^
+
+warning: unused import: `std::process::Command`
+ --> src/plugins/systemd.rs:9:5
+  |
+9 | use std::process::Command;
+  |     ^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `PluginMetadata`
+  --> src/plugins/systemd.rs:10:82
+   |
+10 | use crate::plugin_system::{Plugin, Change, ValidationResult, PluginCapabilities, PluginMetadata, PluginContext};
+   |                                                                                  ^^^^^^^^^^^^^^
+
+warning: unused import: `std::sync::Arc`
+ --> src/http_tls_server/server.rs:8:5
+  |
+8 | use std::sync::Arc;
+  |     ^^^^^^^^^^^^^^
+
+warning: unused imports: `CertificateSource` and `TlsConfig`
+  --> src/http_tls_server/server.rs:14:18
+   |
+14 | use super::tls::{TlsConfig, CertificateSource};
+   |                  ^^^^^^^^^  ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `Router`
+  --> src/webui/server.rs:10:5
+   |
+10 |     Router,
+   |     ^^^^^^
+
+warning: unused import: `tower_http::cors::CorsLayer`
+  --> src/webui/server.rs:15:5
+   |
+15 | use tower_http::cors::CorsLayer;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `BufRead`, `Write`, and `self`
+  --> src/mcp/chat/dbus_control.rs:10:15
+   |
+10 | use std::io::{self, BufRead, Write};
+   |               ^^^^  ^^^^^^^  ^^^^^
+
+warning: unused import: `Context`
+ --> src/mcp/chat/server.rs:4:14
+  |
+4 | use anyhow::{Context, Result};
+  |              ^^^^^^^
+
+warning: unused import: `Router`
+  --> src/mcp/chat/server.rs:10:11
+   |
+10 |     Json, Router,
+   |           ^^^^^^
+
+warning: unused import: `net::SocketAddr`
+  --> src/mcp/chat/server.rs:15:33
+   |
+15 | use std::{collections::HashMap, net::SocketAddr, path::PathBuf, sync::Arc};
+   |                                 ^^^^^^^^^^^^^^^
+
+warning: unused imports: `cors::CorsLayer`, `services::ServeDir`, and `trace::TraceLayer`
+  --> src/mcp/chat/server.rs:18:5
+   |
+18 |     cors::CorsLayer,
+   |     ^^^^^^^^^^^^^^^
+19 |     services::ServeDir,
+   |     ^^^^^^^^^^^^^^^^^^
+20 |     trace::TraceLayer,
+   |     ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::mcp::introspection_cache`
+  --> src/mcp/chat/server.rs:27:5
+   |
+27 | use crate::mcp::introspection_cache;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `ServerConfig` and `self`
+  --> src/mcp/chat/server.rs:29:28
+   |
+29 | use super::introspection::{self, introspect_server_config, ServerConfig};
+   |                            ^^^^                            ^^^^^^^^^^^^
+
+warning: unused import: `Context`
+ --> src/mcp/plugin_tool_bridge.rs:7:14
+  |
+7 | use anyhow::{Context, Result};
+  |              ^^^^^^^
+
+warning: unused imports: `DateTime` and `Utc`
+  --> src/mcp/introspective_gadget.rs:29:14
+   |
+29 | use chrono::{DateTime, Utc};
+   |              ^^^^^^^^  ^^^
+
+warning: use of deprecated function `base64::encode`: Use Engine::encode
+   --> src/mcp/introspective_gadget.rs:941:40
+    |
+941 |                 "binary_data": base64::encode(bytes),
+    |                                        ^^^^^^
+    |
+    = note: `#[warn(deprecated)]` on by default
+
+warning: unused variable: `iface_data`
+   --> src/introspection/hierarchical.rs:321:24
+    |
+321 |             for (path, iface_data) in managed_objects {
+    |                        ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_iface_data`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `client`
+   --> src/state/plugins/net.rs:450:13
+    |
+450 |         let client = crate::native::OvsdbClient::new();
+    |             ^^^^^^ help: if this is intentional, prefix it with an underscore: `_client`
+
+error[E0382]: borrow of partially moved value: `self`
+   --> src/http_tls_server/server.rs:262:17
+    |
+231 |         let app = self.app;
+    |                   -------- value partially moved here
+...
+262 |                 self.serve_with_tls_fallback(http_addr, https_addr, &cert_path, &key_path, app).await?;
+    |                 ^^^^ value borrowed here after partial move
+    |
+    = note: partial move occurs because `self.app` has type `Router`, which does not implement the `Copy` trait
+
+warning: unused variable: `domain`
+   --> src/http_tls_server/tls.rs:116:46
+    |
+116 |             CertificateSource::LetsEncrypt { domain, email } => {
+    |                                              ^^^^^^ help: try ignoring the field: `domain: _`
+
+warning: unused variable: `email`
+   --> src/http_tls_server/tls.rs:116:54
+    |
+116 |             CertificateSource::LetsEncrypt { domain, email } => {
+    |                                                      ^^^^^ help: try ignoring the field: `email: _`
+
+warning: unused variable: `name`
+   --> src/http_tls_server/health.rs:159:9
+    |
+159 |         name: &str,
+    |         ^^^^ help: if this is intentional, prefix it with an underscore: `_name`
+
+warning: unused variable: `connection_string`
+   --> src/http_tls_server/health.rs:201:40
+    |
+201 |     pub async fn check_database_health(connection_string: &str) -> ServiceHealth {
+    |                                        ^^^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_connection_string`
+
+warning: unused variable: `method`
+   --> src/http_tls_server/metrics.rs:134:40
+    |
+134 |     pub async fn record_request(&self, method: &str, status: u16, duration: f64) {
+    |                                        ^^^^^^ help: if this is intentional, prefix it with an underscore: `_method`
+
+warning: unused variable: `name`
+   --> src/http_tls_server/metrics.rs:264:48
+    |
+264 |         pub async fn monitor<F, Fut, T>(&self, name: &str, f: F) -> T
+    |                                                ^^^^ help: if this is intentional, prefix it with an underscore: `_name`
+
+warning: unused variable: `url`
+  --> src/mcp/json_introspection.rs:66:29
+   |
+66 |     pub async fn fetch_http(url: &str) -> Result<JsonIntrospection, Box<dyn std::error::Error>> {
+   |                             ^^^ help: if this is intentional, prefix it with an underscore: `_url`
+
+warning: unused variable: `config`
+   --> src/mcp/agent_registry.rs:273:55
+    |
+273 |     pub async fn spawn_agent(&self, agent_type: &str, config: Option<Value>) -> Result<String> {
+    |                                                       ^^^^^^ help: if this is intentional, prefix it with an underscore: `_config`
+
+warning: unused variable: `response`
+   --> src/mcp/chat_server.rs:917:17
+    |
+917 |             let response = state.process_message(&conversation_id, &text).await;
+    |                 ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_response`
+
+warning: unused variable: `state`
+   --> src/mcp/chat_server.rs:936:11
+    |
+936 |     State(state): State<ChatServerState>,
+    |           ^^^^^ help: if this is intentional, prefix it with an underscore: `_state`
+
+warning: unused variable: `web_dir`
+   --> src/mcp/chat/server.rs:167:9
+    |
+167 |     let web_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    |         ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_web_dir`
+
+warning: unused variable: `state`
+   --> src/mcp/chat/server.rs:340:5
+    |
+340 |     state: &ChatState,
+    |     ^^^^^ help: if this is intentional, prefix it with an underscore: `_state`
+
+warning: variable does not need to be mutable
+   --> src/mcp/chat/server.rs:850:24
+    |
+850 | async fn handle_socket(mut socket: WebSocket, state: ChatState) {
+    |                        ----^^^^^^
+    |                        |
+    |                        help: remove this `mut`
+    |
+    = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `rx`
+   --> src/mcp/mcp_client.rs:148:18
+    |
+148 |         let (tx, rx) = tokio::sync::oneshot::channel();
+    |                  ^^ help: if this is intentional, prefix it with an underscore: `_rx`
+
+error[E0599]: no method named `introspect_software` found for reference `&NativeIntrospector` in the current scope
+   --> src/mcp/native_introspection.rs:737:29
+    |
+737 |         let software = self.introspect_software().await?;
+    |                             ^^^^^^^^^^^^^^^^^^^
+    |
+help: there is a method `introspect_hardware` with a similar name
+    |
+737 -         let software = self.introspect_software().await?;
+737 +         let software = self.introspect_hardware().await?;
+    |
+
+error[E0599]: no method named `introspect_filesystem` found for reference `&NativeIntrospector` in the current scope
+   --> src/mcp/native_introspection.rs:738:31
+    |
+738 |         let filesystem = self.introspect_filesystem().await?;
+    |                               ^^^^^^^^^^^^^^^^^^^^^
+    |
+help: there is a method `introspect_dbus_system` with a similar name
+    |
+738 -         let filesystem = self.introspect_filesystem().await?;
+738 +         let filesystem = self.introspect_dbus_system().await?;
+    |
+
+error[E0599]: no method named `introspect_runtime` found for reference `&NativeIntrospector` in the current scope
+    --> src/mcp/native_introspection.rs:739:28
+     |
+ 739 |         let runtime = self.introspect_runtime().await?;
+     |                            ^^^^^^^^^^^^^^^^^^
+     |
+help: there is a method `introspect_bus` with a similar name, but with different arguments
+    --> src/mcp/native_introspection.rs:1067:5
+     |
+1067 |     async fn introspect_bus(&self, conn: &Connection, bus_type: &str) -> Result<DbusBusAbstraction> {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0599]: no method named `introspect_session` found for reference `&NativeIntrospector` in the current scope
+    --> src/mcp/native_introspection.rs:740:28
+     |
+ 740 |         let session = self.introspect_session().await?;
+     |                            ^^^^^^^^^^^^^^^^^^
+     |
+help: there is a method `introspect_bus` with a similar name, but with different arguments
+    --> src/mcp/native_introspection.rs:1067:5
+     |
+1067 |     async fn introspect_bus(&self, conn: &Connection, bus_type: &str) -> Result<DbusBusAbstraction> {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0599]: no method named `introspect_network` found for reference `&NativeIntrospector` in the current scope
+   --> src/mcp/native_introspection.rs:741:28
+    |
+741 |         let network = self.introspect_network().await?;
+    |                            ^^^^^^^^^^^^^^^^^^
+    |
+help: there is a method `introspect_memory` with a similar name
+    |
+741 -         let network = self.introspect_network().await?;
+741 +         let network = self.introspect_memory().await?;
+    |
+
+error[E0599]: no method named `build_knowledge_base` found for reference `&NativeIntrospector` in the current scope
+   --> src/mcp/native_introspection.rs:744:35
+    |
+744 |         let knowledge_base = self.build_knowledge_base(&dbus, &hardware, &software, &filesystem, &runtime, &session, &network).await?;
+    |                                   ^^^^^^^^^^^^^^^^^^^^ method not found in `&NativeIntrospector`
+
+error[E0599]: no method named `calculate_system_discovery_stats` found for reference `&NativeIntrospector` in the current scope
+    --> src/mcp/native_introspection.rs:747:36
+     |
+ 747 |         let discovery_stats = self.calculate_system_discovery_stats(
+     |                               -----^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+help: there is a method `calculate_discovery_stats` with a similar name, but with different arguments
+    --> src/mcp/native_introspection.rs:1674:5
+     |
+1674 | /     fn calculate_discovery_stats(
+1675 | |         &self,
+1676 | |         system_bus: &DbusBusAbstraction,
+1677 | |         session_bus: &Option<DbusBusAbstraction>,
+1678 | |         unknown_objects: &[UnknownObject],
+1679 | |         discovery_time_ms: u128,
+1680 | |     ) -> DiscoveryStats {
+     | |_______________________^
+
+warning: variable does not need to be mutable
+   --> src/mcp/native_introspection.rs:768:13
+    |
+768 |         let mut system_bus = self.introspect_bus(&self.system_conn, "system").await?;
+    |             ----^^^^^^^^^^
+    |             |
+    |             help: remove this `mut`
+
+error[E0599]: no method named `introspect_network_interfaces` found for reference `&NativeIntrospector` in the current scope
+   --> src/mcp/native_introspection.rs:792:39
+    |
+792 |         let network_interfaces = self.introspect_network_interfaces().await?;
+    |                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+help: there is a method `introspect_storage` with a similar name
+    |
+792 -         let network_interfaces = self.introspect_network_interfaces().await?;
+792 +         let network_interfaces = self.introspect_storage().await?;
+    |
+
+error[E0599]: no method named `introspect_pci` found for reference `&NativeIntrospector` in the current scope
+   --> src/mcp/native_introspection.rs:793:32
+    |
+793 |         let pci_devices = self.introspect_pci().await?;
+    |                                ^^^^^^^^^^^^^^
+    |
+help: there is a method `introspect_cpu` with a similar name
+    |
+793 -         let pci_devices = self.introspect_pci().await?;
+793 +         let pci_devices = self.introspect_cpu().await?;
+    |
+
+error[E0599]: no method named `introspect_usb` found for reference `&NativeIntrospector` in the current scope
+    --> src/mcp/native_introspection.rs:794:32
+     |
+ 794 |         let usb_devices = self.introspect_usb().await?;
+     |                                ^^^^^^^^^^^^^^
+     |
+help: there is a method `introspect_bus` with a similar name, but with different arguments
+    --> src/mcp/native_introspection.rs:1067:5
+     |
+1067 |     async fn introspect_bus(&self, conn: &Connection, bus_type: &str) -> Result<DbusBusAbstraction> {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0599]: no method named `introspect_sensors` found for reference `&NativeIntrospector` in the current scope
+   --> src/mcp/native_introspection.rs:795:28
+    |
+795 |         let sensors = self.introspect_sensors().await?;
+    |                            ^^^^^^^^^^^^^^^^^^
+    |
+help: there is a method `introspect_memory` with a similar name
+    |
+795 -         let sensors = self.introspect_sensors().await?;
+795 +         let sensors = self.introspect_memory().await?;
+    |
+
+error[E0599]: no method named `introspect_numa_nodes` found for reference `&NativeIntrospector` in the current scope
+    --> src/mcp/native_introspection.rs:857:31
+     |
+ 857 |         let numa_nodes = self.introspect_numa_nodes().await?;
+     |                               ^^^^^^^^^^^^^^^^^^^^^
+     |
+help: there is a method `introspect_bus` with a similar name, but with different arguments
+    --> src/mcp/native_introspection.rs:1067:5
+     |
+1067 |     async fn introspect_bus(&self, conn: &Connection, bus_type: &str) -> Result<DbusBusAbstraction> {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0599]: no method named `parse_meminfo_value` found for reference `&NativeIntrospector` in the current scope
+   --> src/mcp/native_introspection.rs:883:36
+    |
+883 |                 total_bytes = self.parse_meminfo_value(line) * 1024; // Convert to bytes
+    |                                    ^^^^^^^^^^^^^^^^^^^ method not found in `&NativeIntrospector`
+
+error[E0599]: no method named `parse_meminfo_value` found for reference `&NativeIntrospector` in the current scope
+   --> src/mcp/native_introspection.rs:885:40
+    |
+885 |                 available_bytes = self.parse_meminfo_value(line) * 1024;
+    |                                        ^^^^^^^^^^^^^^^^^^^ method not found in `&NativeIntrospector`
+
+error[E0599]: no method named `parse_meminfo_value` found for reference `&NativeIntrospector` in the current scope
+   --> src/mcp/native_introspection.rs:887:35
+    |
+887 |                 swap_total = self.parse_meminfo_value(line) * 1024;
+    |                                   ^^^^^^^^^^^^^^^^^^^ method not found in `&NativeIntrospector`
+
+error[E0599]: no method named `parse_meminfo_value` found for reference `&NativeIntrospector` in the current scope
+   --> src/mcp/native_introspection.rs:889:34
+    |
+889 |                 swap_free = self.parse_meminfo_value(line) * 1024;
+    |                                  ^^^^^^^^^^^^^^^^^^^ method not found in `&NativeIntrospector`
+
+error[E0599]: no method named `introspect_numa_memory` found for reference `&NativeIntrospector` in the current scope
+   --> src/mcp/native_introspection.rs:894:32
+    |
+894 |         let numa_memory = self.introspect_numa_memory().await?;
+    |                                ^^^^^^^^^^^^^^^^^^^^^^
+    |
+help: there is a method `introspect_memory` with a similar name
+    |
+894 -         let numa_memory = self.introspect_numa_memory().await?;
+894 +         let numa_memory = self.introspect_memory().await?;
+    |
+
+error[E0599]: no method named `get_device_model` found for reference `&NativeIntrospector` in the current scope
+   --> src/mcp/native_introspection.rs:919:38
+    |
+919 |                     let model = self.get_device_model(&device).await.unwrap_or_else(|| "unknown".to_string());
+    |                                      ^^^^^^^^^^^^^^^^ method not found in `&NativeIntrospector`
+
+error[E0599]: no method named `get_device_partitions` found for reference `&NativeIntrospector` in the current scope
+    --> src/mcp/native_introspection.rs:922:43
+     |
+ 922 |                     let partitions = self.get_device_partitions(&device).await;
+     |                                           ^^^^^^^^^^^^^^^^^^^^^
+     |
+help: there is a method `get_service_pid` with a similar name, but with different arguments
+    --> src/mcp/native_introspection.rs:1544:5
+     |
+1544 |     async fn get_service_pid(&self, conn: &Connection, service_name: &str) -> Result<u32> {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0599]: no method named `extract_uuid_from_btrfs_show` found for reference `&NativeIntrospector` in the current scope
+   --> src/mcp/native_introspection.rs:972:25
+    |
+972 |         let uuid = self.extract_uuid_from_btrfs_show(&stdout).unwrap_or_else(|| "unknown".to_string());
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method not found in `&NativeIntrospector`
+
+error[E0599]: no method named `parse_btrfs_usage` found for reference `&NativeIntrospector` in the current scope
+   --> src/mcp/native_introspection.rs:982:58
+    |
+982 |         let (total_bytes, used_bytes, free_bytes) = self.parse_btrfs_usage(&usage_stdout);
+    |                                                          ^^^^^^^^^^^^^^^^^
+    |
+help: there is a method `parse_arg` with a similar name
+    |
+982 -         let (total_bytes, used_bytes, free_bytes) = self.parse_btrfs_usage(&usage_stdout);
+982 +         let (total_bytes, used_bytes, free_bytes) = self.parse_arg(&usage_stdout);
+    |
+
+error[E0599]: no method named `get_btrfs_snapshots` found for reference `&NativeIntrospector` in the current scope
+   --> src/mcp/native_introspection.rs:988:30
+    |
+988 |         let snapshots = self.get_btrfs_snapshots(mount_point).await?;
+    |                              ^^^^^^^^^^^^^^^^^^^ method not found in `&NativeIntrospector`
+
+warning: unused variable: `conn`
+    --> src/mcp/native_introspection.rs:1544:37
+     |
+1544 |     async fn get_service_pid(&self, conn: &Connection, service_name: &str) -> Result<u32> {
+     |                                     ^^^^ help: if this is intentional, prefix it with an underscore: `_conn`
+
+warning: unused variable: `service_name`
+    --> src/mcp/native_introspection.rs:1544:56
+     |
+1544 |     async fn get_service_pid(&self, conn: &Connection, service_name: &str) -> Result<u32> {
+     |                                                        ^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_service_name`
+
+warning: unused variable: `conn`
+    --> src/mcp/native_introspection.rs:1551:46
+     |
+1551 |     async fn discover_unknown_objects(&self, conn: &Connection, bus_type: &str, known_services: &HashMap<String, DbusServiceAbstraction>)...
+     |                                              ^^^^ help: if this is intentional, prefix it with an underscore: `_conn`
+
+warning: unused variable: `bus_type`
+    --> src/mcp/native_introspection.rs:1551:65
+     |
+1551 | ...(&self, conn: &Connection, bus_type: &str, known_services: &HashMap<String, DbusServiceAbstraction>) -> Result<Vec<UnknownObject>> {
+     |                               ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_bus_type`
+
+warning: unused variable: `known_services`
+    --> src/mcp/native_introspection.rs:1551:81
+     |
+1551 | ...ion, bus_type: &str, known_services: &HashMap<String, DbusServiceAbstraction>) -> Result<Vec<UnknownObject>> {
+     |                         ^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_known_services`
+
+warning: unused variable: `pattern`
+    --> src/mcp/native_introspection.rs:1562:13
+     |
+1562 |         for pattern in probe_patterns {
+     |             ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_pattern`
+
+warning: variable does not need to be mutable
+    --> src/mcp/native_introspection.rs:1552:13
+     |
+1552 |         let mut unknown = Vec::new();
+     |             ----^^^^^^^
+     |             |
+     |             help: remove this `mut`
+
+warning: unused variable: `line`
+    --> src/mcp/native_introspection.rs:1951:13
+     |
+1951 |         for line in stdout.lines() {
+     |             ^^^^ help: if this is intentional, prefix it with an underscore: `_line`
+
+warning: unused variable: `stats`
+    --> src/mcp/native_introspection.rs:2110:25
+     |
+2110 |                     let stats: Vec<&str> = parts[1].split_whitespace().collect();
+     |                         ^^^^^ help: if this is intentional, prefix it with an underscore: `_stats`
+
+error[E0599]: no method named `command_exists` found for reference `&DbusSystemAbstraction` in the current scope
+    --> src/mcp/native_introspection.rs:2261:17
+     |
+2261 |         if self.command_exists("sensors") {
+     |                 ^^^^^^^^^^^^^^ method not found in `&DbusSystemAbstraction`
+
+error[E0277]: the `?` operator can only be used on `Result`s, not `Option`s, in an async function that returns `Result`
+    --> src/mcp/native_introspection.rs:2265:22
+     |
+2257 |       async fn introspect_sensors(&self) -> Result<Vec<SensorReading>> {
+     |  ______________________________________________________________________-
+2258 | |         let mut sensors = Vec::new();
+...    |
+2265 | |                 .ok()?;
+     | |                      ^ use `.ok_or(...)?` to provide an error compatible with `std::result::Result<Vec<SensorReading>, anyhow::Error>`
+...    |
+2272 | |         Ok(sensors)
+2273 | |     }
+     | |_____- this function returns a `Result`
+
+error[E0277]: the `?` operator can only be used on `Result`s, not `Option`s, in an async function that returns `Result`
+    --> src/mcp/native_introspection.rs:2326:18
+     |
+2319 |       async fn introspect_disk_usage(&self) -> Result<Vec<DiskUsage>> {
+     |  _____________________________________________________________________-
+2320 | |         let mut usages = Vec::new();
+2321 | |
+2322 | |         let output = tokio::process::Command::new("df")
+...    |
+2326 | |             .ok()?;
+     | |                  ^ use `.ok_or(...)?` to provide an error compatible with `std::result::Result<Vec<DiskUsage>, anyhow::Error>`
+...    |
+2342 | |         Ok(usages)
+2343 | |     }
+     | |_____- this function returns a `Result`
+
+error[E0277]: the `?` operator can only be used on `Result`s, not `Option`s, in an async function that returns `Result`
+    --> src/mcp/native_introspection.rs:2498:18
+     |
+2491 |       async fn introspect_routes(&self) -> Result<Vec<RouteInfo>> {
+     |  _________________________________________________________________-
+2492 | |         let mut routes = Vec::new();
+2493 | |
+2494 | |         let output = tokio::process::Command::new("ip")
+...    |
+2498 | |             .ok()?;
+     | |                  ^ use `.ok_or(...)?` to provide an error compatible with `std::result::Result<Vec<RouteInfo>, anyhow::Error>`
+...    |
+2513 | |         Ok(routes)
+2514 | |     }
+     | |_____- this function returns a `Result`
+
+warning: unused variable: `hardware`
+    --> src/mcp/native_introspection.rs:2588:9
+     |
+2588 |         hardware: &HardwareAbstraction,
+     |         ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_hardware`
+
+warning: unused variable: `software`
+    --> src/mcp/native_introspection.rs:2589:9
+     |
+2589 |         software: &SoftwareAbstraction,
+     |         ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_software`
+
+warning: unused variable: `runtime`
+    --> src/mcp/native_introspection.rs:2591:9
+     |
+2591 |         runtime: &RuntimeAbstraction,
+     |         ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_runtime`
+
+warning: unused variable: `session`
+    --> src/mcp/native_introspection.rs:2592:9
+     |
+2592 |         session: &SessionAbstraction,
+     |         ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_session`
+
+warning: unused variable: `network`
+    --> src/mcp/native_introspection.rs:2593:9
+     |
+2593 |         network: &NetworkAbstraction,
+     |         ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_network`
+
+warning: variable does not need to be mutable
+    --> src/mcp/native_introspection.rs:2597:13
+     |
+2597 |         let mut patterns = Vec::new();
+     |             ----^^^^^^^^
+     |             |
+     |             help: remove this `mut`
+
+error[E0624]: method `into_inner` is private
+  --> src/plugins/dbus_auto.rs:92:48
+   |
+92 |                     let json_val = match value.into_inner() {
+   |                                                ^^^^^^^^^^ private method
+   |
+  ::: /home/jeremy/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zvariant-5.8.0/src/owned_value.rs:28:5
+   |
+28 |     pub(crate) fn into_inner(self) -> Value<'static> {
+   |     ------------------------------------------------ private method defined here
+
+warning: unused import: `BufRead`
+ --> src/mcp/agents/network.rs:6:21
+  |
+6 | use std::io::{self, BufRead, Write};
+  |                     ^^^^^^^
+
+warning: unused variable: `props_proxy`
+   --> src/plugins/dbus_auto.rs:120:13
+    |
+120 |         let props_proxy = zbus::fdo::PropertiesProxy::builder(&self.connection)
+    |             ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_props_proxy`
+
+warning: unused variable: `key`
+   --> src/plugins/dbus_auto.rs:127:18
+    |
+127 |             for (key, value) in obj {
+    |                  ^^^ help: if this is intentional, prefix it with an underscore: `_key`
+
+warning: unused variable: `value`
+   --> src/plugins/dbus_auto.rs:127:23
+    |
+127 |             for (key, value) in obj {
+    |                       ^^^^^ help: if this is intentional, prefix it with an underscore: `_value`
+
+warning: unused variable: `current`
+   --> src/plugins/dbus_auto.rs:139:26
+    |
+139 |     async fn diff(&self, current: Value, desired: Value) -> Result<Vec<Change>> {
+    |                          ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_current`
+
+warning: unused variable: `desired`
+   --> src/plugins/dbus_auto.rs:139:42
+    |
+139 |     async fn diff(&self, current: Value, desired: Value) -> Result<Vec<Change>> {
+    |                                          ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_desired`
+
+error: future cannot be sent between threads safely
+   --> src/plugins/network.rs:471:5
+    |
+471 |     async fn apply_state(&self, desired: Value) -> Result<()> {
+    |     ^^^^^ future created by async block is not `Send`
+    |
+    = help: the trait `Sync` is not implemented for `dyn OpenFlowMessage`
+note: captured value is not `Send` because `&` references cannot be sent unless their referent is `Sync`
+   --> src/native/openflow.rs:165:38
+    |
+165 |     async fn send_message(&mut self, message: &dyn OpenFlowMessage) -> Result<()> {
+    |                                      ^^^^^^^ has type `&dyn OpenFlowMessage` which is not `Send`, because `dyn OpenFlowMessage` is not `Sync`
+    = note: required for the cast from `Pin<Box<{async block@src/plugins/network.rs:471:5: 471:10}>>` to `Pin<Box<dyn Future<Output = Result<(), Error>> + Send>>`
+    = note: the full name for the type has been written to '/home/jeremy/git/op-dbus-staging/target/debug/deps/op_dbus-d390f93e90f14d15.long-type-9437967138530989185.txt'
+    = note: consider using `--verbose` to print the full type name to the console
+
+warning: unused variable: `current`
+   --> src/plugins/systemd.rs:126:26
+    |
+126 |     async fn diff(&self, current: Value, desired: Value) -> Result<Vec<Change>> {
+    |                          ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_current`
+
+warning: unused variable: `desired`
+   --> src/plugins/systemd.rs:126:42
+    |
+126 |     async fn diff(&self, current: Value, desired: Value) -> Result<Vec<Change>> {
+    |                                          ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_desired`
+
+warning: unused variable: `nested_router`
+   --> src/http_tls_server/router.rs:139:20
+    |
+139 |         for (path, nested_router) in &self.nested_routers {
+    |                    ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_nested_router`
+
+error[E0733]: recursion in an async fn requires boxing
+   --> src/http_tls_server/tls.rs:83:5
+    |
+ 83 |     pub async fn build_rustls_config(&self) -> Result<axum_server::tls_rustls::RustlsConfig, TlsError> {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+120 |                 self.build_rustls_config().await
+    |                 -------------------------------- recursive call here
+    |
+    = note: a recursive `async fn` call must introduce indirection such as `Box::pin` to avoid an infinitely sized future
+
+warning: unused variable: `domain`
+   --> src/http_tls_server/tls.rs:174:9
+    |
+174 |         domain: &str,
+    |         ^^^^^^ help: if this is intentional, prefix it with an underscore: `_domain`
+
+warning: unused variable: `cert_path`
+   --> src/http_tls_server/tls.rs:175:9
+    |
+175 |         cert_path: &Path,
+    |         ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_cert_path`
+
+warning: unused variable: `key_path`
+   --> src/http_tls_server/tls.rs:176:9
+    |
+176 |         key_path: &Path,
+    |         ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_key_path`
+
+warning: unused variable: `cert_path`
+   --> src/http_tls_server/tls.rs:204:32
+    |
+204 |     pub fn get_cert_expiration(cert_path: &Path) -> Result<std::time::SystemTime, TlsError> {
+    |                                ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_cert_path`
+
+warning: unused variable: `method_name`
+    --> src/mcp/native_introspection.rs:1618:47
+     |
+1618 |     fn extract_method_block(&self, xml: &str, method_name: &str) -> Option<String> {
+     |                                               ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_method_name`
+
+warning: unused variable: `signal_name`
+    --> src/mcp/native_introspection.rs:1624:47
+     |
+1624 |     fn extract_signal_block(&self, xml: &str, signal_name: &str) -> Option<String> {
+     |                                               ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_signal_name`
+
+warning: unused variable: `bus_type`
+    --> src/mcp/native_introspection.rs:1651:58
+     |
+1651 |     fn create_minimal_service(&self, service_name: &str, bus_type: &str, error: &str) -> DbusServiceAbstraction {
+     |                                                          ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_bus_type`
+
+warning: unused variable: `subvol`
+    --> src/mcp/native_introspection.rs:2631:13
+     |
+2631 |         for subvol in &btrfs_fs.subvolumes {
+     |             ^^^^^^ help: if this is intentional, prefix it with an underscore: `_subvol`
+
+warning: unused variable: `template_data`
+    --> src/mcp/native_introspection.rs:2696:37
+     |
+2696 |     fn generate_lxc_template(&self, template_data: &Value) -> Result<TemplateDefinition> {
+     |                                     ^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_template_data`
+
+error[E0382]: borrow of moved value: `elements`
+    --> src/mcp/native_introspection.rs:2730:29
+     |
+2697 |         let mut elements = Vec::new();
+     |             ------------ move occurs because `elements` has type `Vec<TemplateElement>`, which does not implement the `Copy` trait
+...
+2729 |             elements,
+     |             -------- value moved here
+2730 |             total_elements: elements.len(),
+     |                             ^^^^^^^^ value borrowed here after move
+     |
+help: consider cloning the value if the performance cost is acceptable
+     |
+2729 |             elements: elements.clone(),
+     |                     ++++++++++++++++++
+
+warning: unused variable: `object_path`
+    --> src/mcp/native_introspection.rs:2740:14
+     |
+2740 |         for (object_path, object) in &service.objects {
+     |              ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_object_path`
+
+warning: unused variable: `object`
+    --> src/mcp/native_introspection.rs:2740:27
+     |
+2740 |         for (object_path, object) in &service.objects {
+     |                           ^^^^^^ help: if this is intentional, prefix it with an underscore: `_object`
+
+warning: unused variable: `service`
+    --> src/mcp/native_introspection.rs:2878:24
+     |
+2878 |     for (service_name, service) in &self.dbus.system_bus.services {
+     |                        ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_service`
+
+warning: unused variable: `pattern`
+   --> src/mcp/introspective_gadget.rs:610:33
+    |
+610 |                     if let Some(pattern) = &prop.pattern {
+    |                                 ^^^^^^^ help: if this is intentional, prefix it with an underscore: `_pattern`
+
+warning: unused variable: `data`
+    --> src/mcp/introspective_gadget.rs:1003:13
+     |
+1003 |         let data = input.data.as_ref()
+     |             ^^^^ help: if this is intentional, prefix it with an underscore: `_data`
+
+Some errors have detailed explanations: E0277, E0382, E0599, E0624, E0733.
+For more information about an error, try `rustc --explain E0277`.
+warning: `op-dbus` (lib) generated 84 warnings
+error: could not compile `op-dbus` (lib) due to 31 previous errors; 84 warnings emitted

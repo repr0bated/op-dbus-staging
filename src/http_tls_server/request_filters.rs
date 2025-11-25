@@ -1,6 +1,6 @@
-//! HTTP Middleware
+//! HTTP Request Filters
 //!
-//! Provides common middleware for security, logging, rate limiting, etc.
+//! Native request filtering and processing for security, logging, rate limiting, etc.
 
 use axum::{
     extract::Request,
@@ -128,8 +128,24 @@ pub fn default_cors() -> CorsLayer {
         .allow_headers(Any)
 }
 
+use tower_http::classify::SharedClassifier;
+use tower_http::trace::DefaultOnRequest;
+use tower_http::trace::DefaultOnResponse;
+use tower_http::trace::DefaultOnBodyChunk;
+use tower_http::trace::DefaultOnEos;
+use tower_http::trace::DefaultOnFailure;
+use tower_http::classify::ServerErrorsAsFailures;
+
 /// Create default trace layer
-pub fn default_trace() -> TraceLayer {
+pub fn default_trace() -> TraceLayer<
+    SharedClassifier<ServerErrorsAsFailures>,
+    tower_http::trace::DefaultMakeSpan,
+    DefaultOnRequest,
+    DefaultOnResponse,
+    DefaultOnBodyChunk,
+    DefaultOnEos,
+    DefaultOnFailure,
+> {
     TraceLayer::new_for_http()
 }
 

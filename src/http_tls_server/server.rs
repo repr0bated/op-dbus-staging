@@ -121,7 +121,7 @@ impl ServerBuilder {
         let config = self.detect_config().await?;
 
         // Build the complete router
-        let mut app = self.router_registry.build_complete_router();
+        let mut app = self.router_registry.clone().build_complete_router();
 
         // Add global middleware
         if self.cors_enabled {
@@ -227,7 +227,8 @@ pub struct Server {
 impl Server {
     /// Start the server
     pub async fn serve(self) -> Result<()> {
-        let config = self.config;
+        let config = self.config.clone();
+        let tls_mode = self.tls_mode.clone();
         let app = self.app;
 
         let http_addr: SocketAddr = format!("{}:{}", config.bind_host, config.http_port)
@@ -244,7 +245,7 @@ impl Server {
                 "Invalid HTTPS bind address"
             )))?;
 
-        match self.tls_mode {
+        match tls_mode {
             TlsMode::Disabled => {
                 // HTTP only
                 let listener = TcpListener::bind(http_addr).await
@@ -259,27 +260,27 @@ impl Server {
             }
             TlsMode::Enabled { cert_path, key_path } => {
                 // Try HTTPS first, fallback to HTTP
-                self.serve_with_tls_fallback(http_addr, https_addr, cert_path, key_path, app).await?;
+                Self::serve_with_tls_fallback_helper(http_addr, https_addr, &cert_path, &key_path, app, config).await?;
             }
             TlsMode::Auto => {
                 // Auto-detect certificates
                 let cert_path = detect_ssl_certificates().unwrap_or_else(|_| "".to_string());
                 let key_path = std::env::var("SSL_KEY_PATH")
                     .unwrap_or_else(|_| cert_path.replace(".pem", ".key"));
-                self.serve_with_tls_fallback(http_addr, https_addr, &cert_path, &key_path, app).await?;
+                Self::serve_with_tls_fallback_helper(http_addr, https_addr, &cert_path, &key_path, app, config).await?;
             }
         }
 
         Ok(())
     }
 
-    async fn serve_with_tls_fallback(
-        &self,
+    async fn serve_with_tls_fallback_helper(
         http_addr: SocketAddr,
         https_addr: SocketAddr,
         cert_path: &str,
         key_path: &str,
         app: Router,
+        config: ServerConfig,
     ) -> Result<()> {
         // Use axum-server for HTTPS (Rust-only, no Node.js)
         use axum_server::tls_rustls::RustlsConfig;
@@ -301,7 +302,7 @@ impl Server {
                 });
 
                 info!("🔒 HTTPS server listening on https://{}", https_addr);
-                log_endpoints(&self.config, true);
+                log_endpoints(&config, true);
 
                 axum_server::bind_rustls(https_addr, rustls_config)
                     .serve(app.into_make_service())
@@ -320,7 +321,7 @@ impl Server {
                     .map_err(ServerError::BindError)?;
                 info!("🌐 HTTP server listening on http://{}", http_addr);
                 info!("⚠️  HTTP is not secure - use HTTPS for production");
-                log_endpoints(&self.config, false);
+                log_endpoints(&config, false);
                 axum::serve(listener, app).await
                     .map_err(|e| ServerError::BindError(std::io::Error::new(
                         std::io::ErrorKind::Other, e

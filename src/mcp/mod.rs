@@ -13,19 +13,24 @@ pub mod agents {
 }
 
 // Core MCP modules
-pub mod bridge;
+// pub mod bridge; // Binary
 pub mod discovery;
 // pub mod discovery_enhanced;  // File not found
 pub mod hybrid_dbus_bridge;
 pub mod hybrid_scanner;
 pub mod introspection_parser;
 pub mod json_introspection;
-pub mod orchestrator;
+// pub mod orchestrator; // Binary
 pub mod system_introspection;
 
 // Refactored modules for loose coupling
 pub mod agent_registry;
 pub mod tool_registry;
+pub mod external_mcp_client;  // External MCP server integration
+pub mod sse_streaming;  // SSE support for long-running operations
+pub mod client_config_generator;  // Auto-generate client configs
+
+
 
 // MCP tools
 pub mod tools {
@@ -36,6 +41,9 @@ pub mod tools {
 pub mod ai_context_provider;
 pub mod chat_server;
 pub mod ollama;
+
+// Chat module - The Brains
+pub mod chat;
 
 // Flow-based workflows
 pub mod workflows;

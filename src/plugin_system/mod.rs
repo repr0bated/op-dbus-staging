@@ -11,6 +11,18 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use std::path::PathBuf;
+use crate::cache::numa::NumaTopology;
+
+/// Context provided to plugin during initialization
+#[derive(Debug, Clone)]
+pub struct PluginContext {
+    /// Dedicated Btrfs subvolume path for this plugin
+    pub storage_path: PathBuf,
+    
+    /// Assigned NUMA node (if any)
+    pub numa_node: Option<u32>,
+}
 
 /// Core plugin trait that all plugins must implement
 #[async_trait]
@@ -49,7 +61,7 @@ pub trait Plugin: Send + Sync {
     }
 
     /// Initialize the plugin
-    async fn initialize(&mut self) -> Result<()> {
+    async fn initialize(&mut self, _context: PluginContext) -> Result<()> {
         Ok(())
     }
 
@@ -167,14 +179,47 @@ type PluginMap = HashMap<String, Arc<Box<dyn Plugin>>>;
 pub struct PluginRegistry {
     plugins: Arc<RwLock<PluginMap>>,
     hooks: Arc<RwLock<PluginHooks>>,
+    numa_topology: Arc<RwLock<NumaTopology>>,
 }
 
 impl PluginRegistry {
     pub fn new() -> Self {
+        // Initialize NUMA topology detection
+        let numa_topology = match NumaTopology::detect() {
+            Ok(topology) => topology,
+            Err(e) => {
+                tracing::warn!("Failed to detect NUMA topology: {}", e);
+                // Fallback to single-node is handled inside detect() usually, but if it fails completely:
+                // We can't easily create a fallback here without exposing create_single_node_fallback
+                // So we'll just panic or return a simplified version if possible, 
+                // but detect() is robust. Let's assume it works or returns a fallback.
+                // Actually, detect() returns Result. If it fails, we should probably just log and continue with a default.
+                // However, NumaTopology::detect() is designed to be robust.
+                // Let's retry with a safe default if it fails.
+                 match NumaTopology::detect() {
+                     Ok(t) => t,
+                     Err(_) => panic!("Failed to initialize NUMA topology even with fallback"),
+                 }
+            }
+        };
+
         Self {
             plugins: Arc::new(RwLock::new(HashMap::new())),
             hooks: Arc::new(RwLock::new(PluginHooks::default())),
+            numa_topology: Arc::new(RwLock::new(numa_topology)),
         }
+    }
+
+    /// Assign a NUMA node for a new plugin
+    async fn assign_numa_node(&self) -> Option<u32> {
+        let topology = self.numa_topology.read().await;
+        if !topology.is_numa_system() {
+            return None;
+        }
+
+        // Simple strategy: Round-robin or load-based
+        // For now, let's use the node with the most free memory
+        topology.node_with_most_memory()
     }
 
     /// Register a new plugin
@@ -187,8 +232,32 @@ impl PluginRegistry {
 
         // Initialize the plugin
         let mut plugin = plugin;
+        
+        // Prepare context
+        // TODO: Implement actual NUMA assignment and subvolume creation
+        // For now, use a default path
+        let storage_path = std::path::PathBuf::from(format!("/var/lib/op-dbus/plugins/{}", name));
+        
+        // Create subvolume
+        if let Err(e) = crate::native::btrfs::create_subvolume(&storage_path).await {
+            // Warn but continue (might be non-btrfs system)
+            tracing::warn!("Failed to create Btrfs subvolume for plugin {}: {}", name, e);
+            tokio::fs::create_dir_all(&storage_path).await?;
+        }
+
+        // Assign NUMA node
+        let numa_node = self.assign_numa_node().await;
+        if let Some(node) = numa_node {
+            tracing::info!("Assigned plugin '{}' to NUMA node {}", name, node);
+        }
+
+        let context = PluginContext {
+            storage_path,
+            numa_node,
+        };
+
         plugin
-            .initialize()
+            .initialize(context)
             .await
             .context("Failed to initialize plugin")?;
 

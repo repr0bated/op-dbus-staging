@@ -11,6 +11,9 @@ use tracing::{info, warn};
 
 // Import OVSDB client
 use crate::native::ovsdb_jsonrpc::OvsdbClient;
+use crate::plugin_system::{Plugin, Change, ValidationResult, PluginCapabilities, PluginMetadata, PluginContext};
+use async_trait::async_trait;
+use serde_json::Value;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NetworkPlugin {
@@ -442,6 +445,63 @@ impl NetworkPlugin {
 
         info!("    ✓ OpenFlow rules applied to {}", bridge);
         Ok(())
+    }
+}
+
+#[async_trait]
+impl Plugin for NetworkPlugin {
+    fn name(&self) -> &str {
+        "network"
+    }
+
+    fn description(&self) -> &str {
+        "Network configuration management (OVS, Interfaces)"
+    }
+
+    fn version(&self) -> &str {
+        "1.0.0"
+    }
+
+    async fn get_state(&self) -> Result<Value> {
+        // TODO: Implement actual state query from OVSDB/System
+        // For now, return the current configuration
+        Ok(serde_json::to_value(self)?)
+    }
+
+    async fn apply_state(&self, desired: Value) -> Result<()> {
+        let config: NetworkPlugin = serde_json::from_value(desired)?;
+        config.apply().await
+    }
+
+    async fn diff(&self, _current: Value, _desired: Value) -> Result<Vec<Change>> {
+        // TODO: Implement diff logic
+        Ok(vec![])
+    }
+
+    async fn validate(&self, _config: Value) -> Result<ValidationResult> {
+        Ok(ValidationResult::success())
+    }
+
+    fn capabilities(&self) -> PluginCapabilities {
+        PluginCapabilities {
+            can_read: true,
+            can_write: true,
+            can_delete: false,
+            supports_dry_run: true,
+            supports_rollback: true,
+            supports_transactions: false,
+            requires_root: true,
+            supported_platforms: vec!["linux".to_string()],
+        }
+    }
+
+    async fn initialize(&mut self, _context: PluginContext) -> Result<()> {
+        // Network plugin could use the storage path for OVSDB backups or state dumps
+        Ok(())
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 

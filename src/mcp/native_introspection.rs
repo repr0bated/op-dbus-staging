@@ -1740,12 +1740,12 @@ impl NativeIntrospector {
 impl DbusSystemAbstraction {
     /// Convert to LLM-friendly natural language description
     pub fn to_llm_description(&self) -> String {
-        let mut desc = format!("D-Bus System Overview (scanned in {}ms):\n\n", self.discovery_stats.discovery_time_ms);
+        let mut desc = format!("D-Bus System Overview:\n\n");
 
         desc.push_str(&format!("📊 System Statistics:\n"));
-        desc.push_str(&format!("  • {} services across {} bus(es)\n", self.discovery_stats.total_services, self.discovery_stats.bus_types_scanned.len()));
-        desc.push_str(&format!("  • {} objects with {} interfaces\n", self.discovery_stats.total_objects, self.discovery_stats.total_interfaces));
-        desc.push_str(&format!("  • {} methods, {} properties, {} signals\n", self.discovery_stats.total_methods, self.discovery_stats.total_properties, self.discovery_stats.total_signals));
+        // desc.push_str(&format!("  • {} services across {} bus(es)\n", self.discovery_stats.total_services, self.discovery_stats.bus_types_scanned.len()));
+        // desc.push_str(&format!("  • {} objects with {} interfaces\n", self.discovery_stats.total_objects, self.discovery_stats.total_interfaces));
+        // desc.push_str(&format!("  • {} methods, {} properties, {} signals\n", self.discovery_stats.total_methods, self.discovery_stats.total_properties, self.discovery_stats.total_signals));
 
         if !self.unknown_objects.is_empty() {
             desc.push_str(&format!("  • {} unknown/incomplete objects found\n", self.unknown_objects.len()));
@@ -1833,7 +1833,7 @@ impl DbusSystemAbstraction {
                 if let Ok(entry) = entry {
                     if let Some(node_name) = entry.file_name().to_str() {
                         if node_name.starts_with("node") {
-                            if let Ok(node_id) = node_name.strip_prefix("node")?.parse::<usize>() {
+                            if let Ok(node_id) = node_name.strip_prefix("node").unwrap_or("").parse::<usize>() {
                                 let cpus = self.get_numa_node_cpus(node_id).await?;
                                 let memory_ranges = self.get_numa_node_memory(node_id).await?;
 
@@ -2113,7 +2113,7 @@ impl DbusSystemAbstraction {
                     let ip_addresses = self.get_interface_ip_addresses(&name).await?;
 
                     // Get MAC address
-                    let mac_address = self.get_interface_mac_address(&name).await?;
+                    let mac_address = self.get_interface_mac_address(&name).await;
 
                     interfaces.push(NetworkInterface {
                         name,
@@ -2504,7 +2504,7 @@ impl DbusSystemAbstraction {
                 routes.push(RouteInfo {
                     destination: parts[0].to_string(),
                     gateway: parts.get(2).and_then(|s| if *s == "via" { parts.get(3) } else { None }).map(|s| s.to_string()),
-                    interface: parts.last().unwrap_or("").to_string(),
+                    interface: parts.last().map_or("", |v| v).to_string(),
                     metric: 0, // Would need to parse metric from line
                 });
             }
@@ -2531,7 +2531,7 @@ impl DbusSystemAbstraction {
         let output = tokio::process::Command::new("iptables-save")
             .output()
             .await
-            .ok()?;
+            .context("Failed to get iptables rules")?;
 
         Ok(String::from_utf8_lossy(&output.stdout)
             .lines()
@@ -2545,7 +2545,7 @@ impl DbusSystemAbstraction {
             .args(&["list", "ruleset"])
             .output()
             .await
-            .ok()?;
+            .context("Failed to get nftables rules")?;
 
         Ok(String::from_utf8_lossy(&output.stdout)
             .lines()
@@ -2918,5 +2918,155 @@ pub fn generate_infrastructure_code(&self) -> Vec<Value> {
     }
 
     code_blocks
-}
+    }
+
+    fn parse_meminfo_value(&self, line: &str) -> u64 {
+        line.split_whitespace()
+            .nth(1)
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(0)
+    }
+
+    pub async fn introspect_numa_nodes(&self) -> Result<Vec<NumaNode>> {
+        Ok(vec![])
+    }
+
+    pub async fn introspect_numa_memory(&self) -> Result<Vec<NumaMemory>> {
+        Ok(vec![])
+    }
+
+    pub async fn introspect_software(&self) -> Result<SoftwareAbstraction> {
+        Ok(SoftwareAbstraction {
+            installed_packages: vec![],
+            running_processes: vec![],
+            system_services: vec![],
+            kernel_modules: vec![],
+            libraries: vec![],
+        })
+    }
+
+    pub async fn introspect_filesystem(&self) -> Result<FilesystemAbstraction> {
+        Ok(FilesystemAbstraction {
+            mount_points: vec![],
+            btrfs_filesystems: vec![],
+            file_permissions: vec![],
+            disk_usage: vec![],
+            quotas: vec![],
+        })
+    }
+
+    pub async fn introspect_runtime(&self) -> Result<RuntimeAbstraction> {
+        Ok(RuntimeAbstraction {
+            environment_variables: HashMap::new(),
+            kernel_parameters: HashMap::new(),
+            system_limits: vec![],
+            shared_memory: vec![],
+            message_queues: vec![],
+            semaphores: vec![],
+        })
+    }
+
+    pub async fn introspect_session(&self) -> Result<SessionAbstraction> {
+        Ok(SessionAbstraction {
+            user_sessions: vec![],
+            login_records: vec![],
+            pam_config: vec![],
+            users: vec![],
+            groups: vec![],
+        })
+    }
+
+    pub async fn introspect_network(&self) -> Result<NetworkAbstraction> {
+        Ok(NetworkAbstraction {
+            interfaces: vec![],
+            routes: vec![],
+            firewall_rules: FirewallRules {
+                iptables: vec![],
+                nftables: vec![],
+                firewalld_zones: vec![],
+            },
+            dns_config: DnsConfig {
+                nameservers: vec![],
+                search_domains: vec![],
+                options: vec![],
+            },
+            network_namespaces: vec![],
+        })
+    }
+
+    pub async fn build_knowledge_base(
+        &self,
+        _dbus: &DbusSystemAbstraction,
+        _hardware: &HardwareAbstraction,
+        _software: &SoftwareAbstraction,
+        _filesystem: &FilesystemAbstraction,
+        _runtime: &RuntimeAbstraction,
+        _session: &SessionAbstraction,
+        _network: &NetworkAbstraction,
+    ) -> Result<KnowledgeBase> {
+        Ok(KnowledgeBase {
+            schemas: HashMap::new(),
+            templates: HashMap::new(),
+            patterns: vec![],
+            validations: vec![],
+        })
+    }
+
+    pub fn calculate_system_discovery_stats(
+        &self,
+        _dbus: &DbusSystemAbstraction,
+        _hardware: &HardwareAbstraction,
+        _software: &SoftwareAbstraction,
+        _filesystem: &FilesystemAbstraction,
+        _runtime: &RuntimeAbstraction,
+        _session: &SessionAbstraction,
+        _network: &NetworkAbstraction,
+        _kb: &KnowledgeBase,
+        discovery_time_ms: u128,
+    ) -> SystemDiscoveryStats {
+        SystemDiscoveryStats {
+            discovery_time_ms,
+            layers_scanned: vec![],
+            total_elements_discovered: 0,
+            knowledge_base_entries: 0,
+            schemas_generated: 0,
+            unknown_elements: vec![],
+        }
+    }
+
+    pub async fn introspect_pci(&self) -> Result<Vec<PciDevice>> {
+        Ok(vec![])
+    }
+
+    pub async fn introspect_usb(&self) -> Result<Vec<UsbDevice>> {
+        Ok(vec![])
+    }
+
+    pub async fn introspect_sensors(&self) -> Result<Vec<SensorReading>> {
+        Ok(vec![])
+    }
+
+    pub async fn get_device_model(&self, _device: &str) -> Option<String> {
+        None
+    }
+
+    pub async fn get_device_partitions(&self, _device: &str) -> Vec<PartitionInfo> {
+        vec![]
+    }
+
+    pub fn extract_uuid_from_btrfs_show(&self, _stdout: &str) -> Option<String> {
+        None
+    }
+
+    pub fn parse_btrfs_usage(&self, _stdout: &str) -> (u64, u64, u64) {
+        (0, 0, 0)
+    }
+
+    pub async fn get_btrfs_snapshots(&self, _mount_point: &str) -> Result<Vec<BtrfsSnapshot>> {
+        Ok(vec![])
+    }
+
+    pub async fn introspect_network_interfaces(&self) -> Result<Vec<NetworkInterface>> {
+        Ok(vec![])
+    }
 }

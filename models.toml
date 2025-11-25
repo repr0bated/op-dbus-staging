@@ -1,0 +1,36 @@
+# Multi-Provider AI Models Configuration for op-dbus
+# This file defines available models from HuggingFace, Ollama, OpenAI, etc.
+
+# Priority: HuggingFace (free tier, many models available)
+[[models]]
+id = "meta-llama/Llama-3.3-70B-Instruct"
+name = "Llama 3.3 70B"
+provider = "huggingface"
+description = "Meta's latest Llama model - excellent for system tasks"
+default = true
+
+[[models]]
+id = "mistralai/Mistral-7B-Instruct-v0.3"
+name = "Mistral 7B Instruct"
+provider = "huggingface"
+description = "Fast and efficient for quick queries"
+
+[[models]]
+id = "google/gemma-2-9b-it"
+name = "Gemma 2 9B"
+provider = "huggingface"
+description = "Google's Gemma model"
+
+[[models]]
+id = "Qwen/Qwen2.5-72B-Instruct"
+name = "Qwen 2.5 72B"
+provider = "huggingface"
+description = "Powerful reasoning and coding"
+
+[[models]]
+id = "microsoft/Phi-3-medium-4k-instruct"
+name = "Phi-3 Medium"
+provider = "huggingface"
+description = "Microsoft's compact but capable model"
+
+# Ollama models (local or cloud)

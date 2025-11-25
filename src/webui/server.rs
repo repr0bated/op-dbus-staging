@@ -1,6 +1,7 @@
 //! Web server for op-dbus UI
 
 use anyhow::Result;
+use crate::http_tls_server::{ServerBuilder, ServiceRouter};
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -38,40 +39,87 @@ impl Default for WebConfig {
 /// Start web server
 pub async fn start_web_server(state_manager: Arc<StateManager>, config: WebConfig) -> Result<()> {
     let app_state = AppState { state_manager };
+    let state = Arc::new(app_state);
 
-    let app = Router::new()
+    // Create service router
+    // Note: We capture state in closures because ServiceRouter builds a Router<()>
+    let router = ServiceRouter::new("/")
         // API routes
-        .route("/api/plugins", get(list_plugins))
-        .route("/api/plugins/:plugin", get(query_plugin))
-        .route("/api/plugins/:plugin/state", get(query_plugin_state))
-        .route("/api/plugins/:plugin/apply", post(apply_plugin_state))
+        .route("/api/plugins", get({
+            let s = state.clone();
+            move || list_plugins(State((*s).clone()))
+        }))
+        .route("/api/plugins/:plugin", get({
+            let s = state.clone();
+            move |path| query_plugin(State((*s).clone()), path)
+        }))
+        .route("/api/plugins/:plugin/state", get({
+            let s = state.clone();
+            move |path| query_plugin_state(State((*s).clone()), path)
+        }))
+        .route("/api/plugins/:plugin/apply", post({
+            let s = state.clone();
+            move |path, json| apply_plugin_state(State((*s).clone()), path, json)
+        }))
         // PlugTree routes (per-resource)
-        .route("/api/containers", get(list_containers))
-        .route("/api/containers/:id", get(get_container))
-        .route("/api/containers/:id", post(apply_container))
-        .route("/api/containers/:id", delete(delete_container))
-        .route("/api/units", get(list_units))
-        .route("/api/units/:name", get(get_unit))
-        .route("/api/units/:name", post(apply_unit))
+        .route("/api/containers", get({
+            let s = state.clone();
+            move || list_containers(State((*s).clone()))
+        }))
+        .route("/api/containers/:id", get({
+            let s = state.clone();
+            move |path| get_container(State((*s).clone()), path)
+        }))
+        .route("/api/containers/:id", post({
+            let s = state.clone();
+            move |path, json| apply_container(State((*s).clone()), path, json)
+        }))
+        .route("/api/containers/:id", delete({
+            let s = state.clone();
+            move |path| delete_container(State((*s).clone()), path)
+        }))
+        .route("/api/units", get({
+            let s = state.clone();
+            move || list_units(State((*s).clone()))
+        }))
+        .route("/api/units/:name", get({
+            let s = state.clone();
+            move |path| get_unit(State((*s).clone()), path)
+        }))
+        .route("/api/units/:name", post({
+            let s = state.clone();
+            move |path, json| apply_unit(State((*s).clone()), path, json)
+        }))
         // System-wide
-        .route("/api/query", get(query_all))
-        .route("/api/introspect", get(introspect_databases))
+        .route("/api/query", get({
+            let s = state.clone();
+            move || query_all(State((*s).clone()))
+        }))
+        .route("/api/introspect", get({
+            let s = state.clone();
+            move || introspect_databases(State((*s).clone()))
+        }))
         // UI
         .route("/", get(index_handler))
         .route("/containers", get(containers_page))
         .route("/network", get(network_page))
-        .route("/systemd", get(systemd_page))
-        .layer(CorsLayer::permissive())
-        .with_state(app_state);
+        .route("/systemd", get(systemd_page));
 
     let addr = format!("{}:{}", config.bind_addr, config.port);
-    let listener = tokio::net::TcpListener::bind(&addr).await?;
-
+    
     tracing::info!("Web UI available at http://{}", addr);
     tracing::info!("  Dashboard: http://{}/", addr);
     tracing::info!("  API docs: http://{}/api", addr);
 
-    axum::serve(listener, app).await?;
+    // Build and start the shared server
+    let server = ServerBuilder::new()
+        .bind_addr(addr)
+        .https_auto() // Auto-detect HTTPS certificates
+        .service_router(router)
+        .build()
+        .await?;
+
+    server.serve().await?;
 
     Ok(())
 }

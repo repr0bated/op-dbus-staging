@@ -47,7 +47,7 @@ impl TlsConfig {
                 cert_path: cert_path.into(),
                 key_path: key_path.into(),
             },
-            min_tls_version: rustls::version::TLS12,
+            min_tls_version: rustls::ProtocolVersion::TLSv1_2,
             cipher_suites: rustls::DEFAULT_CIPHER_SUITES.to_vec(),
         }
     }
@@ -56,7 +56,7 @@ impl TlsConfig {
     pub fn auto() -> Self {
         Self {
             cert_source: CertificateSource::Auto,
-            min_tls_version: rustls::version::TLS12,
+            min_tls_version: rustls::ProtocolVersion::TLSv1_2,
             cipher_suites: rustls::DEFAULT_CIPHER_SUITES.to_vec(),
         }
     }
@@ -68,7 +68,7 @@ impl TlsConfig {
                 domain: domain.into(),
                 email: email.into(),
             },
-            min_tls_version: rustls::version::TLS12,
+            min_tls_version: rustls::ProtocolVersion::TLSv1_2,
             cipher_suites: rustls::DEFAULT_CIPHER_SUITES.to_vec(),
         }
     }
@@ -93,7 +93,7 @@ impl TlsConfig {
                 axum_server::tls_rustls::RustlsConfig::from_pem_file(
                     Path::new(cert_path),
                     Path::new(key_path),
-                ).await.map_err(TlsError::Rustls)
+                ).await.map_err(|e| TlsError::Rustls(rustls::Error::General(e.to_string())))
             }
             CertificateSource::Auto => {
                 // Auto-detect certificates
@@ -111,13 +111,15 @@ impl TlsConfig {
                 axum_server::tls_rustls::RustlsConfig::from_pem_file(
                     Path::new(&cert_path),
                     Path::new(&key_path),
-                ).await.map_err(TlsError::Rustls)
+                ).await.map_err(|e| TlsError::Rustls(rustls::Error::General(e.to_string())))
             }
-            CertificateSource::LetsEncrypt { domain, email } => {
+            CertificateSource::LetsEncrypt { domain: _, email: _ } => {
                 // TODO: Implement Let's Encrypt ACME
                 // For now, fall back to auto-detection
                 tracing::warn!("Let's Encrypt not yet implemented, falling back to auto-detection");
-                self.build_rustls_config().await
+                Box::pin(async move {
+                    Self::auto().build_rustls_config().await
+                }).await
             }
         }
     }

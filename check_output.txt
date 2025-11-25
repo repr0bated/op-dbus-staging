@@ -1,0 +1,231 @@
+   Compiling op-dbus v0.1.0 (/home/jeremy/git/op-dbus-staging)
+error[E0583]: file not found for module `introspection_parser`
+ --> src/mcp/chat/dbus_control.rs:5:1
+  |
+5 | pub mod introspection_parser;
+  | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = help: to create the module `introspection_parser`, create file "src/mcp/chat/dbus_control/introspection_parser.rs" or "src/mcp/chat/dbus_control/introspection_parser/mod.rs"
+  = note: if there is a `mod introspection_parser` elsewhere in the crate already, import it with `use crate::...` instead
+
+error[E0428]: the name `openflow` is defined multiple times
+ --> src/native/mod.rs:3:1
+  |
+2 | pub mod openflow;
+  | ----------------- previous definition of the module `openflow` here
+3 | pub mod openflow;
+  | ^^^^^^^^^^^^^^^^^ `openflow` redefined here
+  |
+  = note: `openflow` must be defined only once in the type namespace of this module
+
+error: couldn't read `src/mcp/../../AGENTS.md`: No such file or directory (os error 2)
+  --> src/mcp/resources.rs:40:26
+   |
+40 |                 content: include_str!("../../AGENTS.md").to_string(),
+   |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0433]: failed to resolve: unresolved import
+  --> src/mcp/chat/server.rs:31:12
+   |
+31 | use crate::plugins::network::NetworkPlugin;
+   |            ^^^^^^^
+   |            |
+   |            unresolved import
+   |            help: a similar path exists: `state::plugins`
+
+error[E0433]: failed to resolve: unresolved import
+  --> src/mcp/chat/server.rs:32:12
+   |
+32 | use crate::plugins::systemd::SystemdPlugin;
+   |            ^^^^^^^
+   |            |
+   |            unresolved import
+   |            help: a similar path exists: `state::plugins`
+
+error[E0433]: failed to resolve: unresolved import
+  --> src/mcp/chat/server.rs:33:12
+   |
+33 | use crate::plugins::dbus_auto::DbusAutoPlugin;
+   |            ^^^^^^^
+   |            |
+   |            unresolved import
+   |            help: a similar path exists: `state::plugins`
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `op_dbus`
+ --> src/mcp/bridge.rs:6:5
+  |
+6 | use op_dbus::mcp::chat::dbus_control::{DbusMcpBridge, McpRequest};
+  |     ^^^^^^^ use of unresolved module or unlinked crate `op_dbus`
+  |
+  = help: if you wanted to use a crate named `op_dbus`, use `cargo add op_dbus` to add it to your `Cargo.toml`
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `op_dbus`
+ --> src/mcp/orchestrator.rs:6:5
+  |
+6 | use op_dbus::mcp::chat::orchestrator::{Orchestrator, LoggingEventListener};
+  |     ^^^^^^^ use of unresolved module or unlinked crate `op_dbus`
+  |
+  = help: if you wanted to use a crate named `op_dbus`, use `cargo add op_dbus` to add it to your `Cargo.toml`
+
+error[E0432]: unresolved import `regex`
+  --> src/mcp/introspective_gadget.rs:28:5
+   |
+28 | use regex::Regex;
+   |     ^^^^^ use of unresolved module or unlinked crate `regex`
+   |
+   = help: if you wanted to use a crate named `regex`, use `cargo add regex` to add it to your `Cargo.toml`
+
+error[E0405]: cannot find trait `EventListener` in module `crate::mcp::orchestrator`
+   --> src/mcp/plugin_tool_bridge.rs:274:32
+    |
+274 | impl crate::mcp::orchestrator::EventListener for IntrospectionPluginListener {
+    |                                ^^^^^^^^^^^^^ not found in `crate::mcp::orchestrator`
+    |
+help: consider importing this trait
+    |
+  4 + use crate::mcp::chat::orchestrator::EventListener;
+    |
+help: if you import `EventListener`, refer to it directly
+    |
+274 - impl crate::mcp::orchestrator::EventListener for IntrospectionPluginListener {
+274 + impl EventListener for IntrospectionPluginListener {
+    |
+
+warning: unused imports: `ApplyResult`, `Checkpoint`, `PluginCapabilities`, `StateAction`, `StateDiff`, and `StatePlugin`
+ --> src/state/auto_plugin.rs:6:5
+  |
+6 |     ApplyResult, Checkpoint, PluginCapabilities, StateAction, StateDiff, StatePlugin,
+  |     ^^^^^^^^^^^  ^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^  ^^^^^^^^^  ^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused imports: `Context` and `Result`
+ --> src/state/auto_plugin.rs:8:14
+  |
+8 | use anyhow::{Context, Result};
+  |              ^^^^^^^  ^^^^^^
+
+warning: unused import: `async_trait::async_trait`
+ --> src/state/auto_plugin.rs:9:5
+  |
+9 | use async_trait::async_trait;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `serde_json::Value`
+  --> src/state/auto_plugin.rs:10:5
+   |
+10 | use serde_json::Value;
+   |     ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `std::sync::Arc`
+  --> src/state/auto_plugin.rs:11:5
+   |
+11 | use std::sync::Arc;
+   |     ^^^^^^^^^^^^^^
+
+warning: unused import: `zbus::Connection`
+  --> src/state/auto_plugin.rs:12:5
+   |
+12 | use zbus::Connection;
+   |     ^^^^^^^^^^^^^^^^
+
+warning: unused import: `zbus::Proxy`
+  --> src/state/auto_plugin.rs:13:5
+   |
+13 | use zbus::Proxy;
+   |     ^^^^^^^^^^^
+
+warning: unused import: `std::sync::Arc`
+ --> src/http_tls_server/server.rs:8:5
+  |
+8 | use std::sync::Arc;
+  |     ^^^^^^^^^^^^^^
+
+warning: unused imports: `CertificateSource` and `TlsConfig`
+  --> src/http_tls_server/server.rs:14:18
+   |
+14 | use super::tls::{TlsConfig, CertificateSource};
+   |                  ^^^^^^^^^  ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `Router`
+  --> src/webui/server.rs:10:5
+   |
+10 |     Router,
+   |     ^^^^^^
+
+warning: unused import: `tower_http::cors::CorsLayer`
+  --> src/webui/server.rs:15:5
+   |
+15 | use tower_http::cors::CorsLayer;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `BufRead`, `Write`, and `self`
+  --> src/mcp/chat/dbus_control.rs:10:15
+   |
+10 | use std::io::{self, BufRead, Write};
+   |               ^^^^  ^^^^^^^  ^^^^^
+
+warning: unused import: `Context`
+ --> src/mcp/chat/server.rs:4:14
+  |
+4 | use anyhow::{Context, Result};
+  |              ^^^^^^^
+
+warning: unused import: `Router`
+  --> src/mcp/chat/server.rs:10:11
+   |
+10 |     Json, Router,
+   |           ^^^^^^
+
+warning: unused import: `net::SocketAddr`
+  --> src/mcp/chat/server.rs:15:33
+   |
+15 | use std::{collections::HashMap, net::SocketAddr, path::PathBuf, sync::Arc};
+   |                                 ^^^^^^^^^^^^^^^
+
+warning: unused imports: `cors::CorsLayer`, `services::ServeDir`, and `trace::TraceLayer`
+  --> src/mcp/chat/server.rs:18:5
+   |
+18 |     cors::CorsLayer,
+   |     ^^^^^^^^^^^^^^^
+19 |     services::ServeDir,
+   |     ^^^^^^^^^^^^^^^^^^
+20 |     trace::TraceLayer,
+   |     ^^^^^^^^^^^^^^^^^
+
+warning: unused import: `crate::mcp::introspection_cache`
+  --> src/mcp/chat/server.rs:27:5
+   |
+27 | use crate::mcp::introspection_cache;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused imports: `ServerConfig` and `self`
+  --> src/mcp/chat/server.rs:29:28
+   |
+29 | use super::introspection::{self, introspect_server_config, ServerConfig};
+   |                            ^^^^                            ^^^^^^^^^^^^
+
+warning: unused import: `Context`
+ --> src/mcp/plugin_tool_bridge.rs:7:14
+  |
+7 | use anyhow::{Context, Result};
+  |              ^^^^^^^
+
+warning: unused imports: `DateTime` and `Utc`
+  --> src/mcp/introspective_gadget.rs:29:14
+   |
+29 | use chrono::{DateTime, Utc};
+   |              ^^^^^^^^  ^^^
+
+warning: use of deprecated function `base64::encode`: Use Engine::encode
+   --> src/mcp/introspective_gadget.rs:941:40
+    |
+941 |                 "binary_data": base64::encode(bytes),
+    |                                        ^^^^^^
+    |
+    = note: `#[warn(deprecated)]` on by default
+
+Some errors have detailed explanations: E0405, E0428, E0432, E0433, E0583.
+For more information about an error, try `rustc --explain E0405`.
+warning: `op-dbus` (lib) generated 21 warnings
+error: could not compile `op-dbus` (lib) due to 10 previous errors; 21 warnings emitted

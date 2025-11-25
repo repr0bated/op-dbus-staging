@@ -17,6 +17,7 @@ pub mod state;
 // Loose coupling modules
 pub mod event_bus;
 pub mod plugin_system;
+pub mod plugins;
 
 // Shared HTTP/TLS server
 pub mod http_tls_server;

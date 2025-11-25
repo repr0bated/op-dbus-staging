@@ -36,13 +36,13 @@ use chrono::{DateTime, Utc};
 #[derive(Clone)]
 pub struct IntrospectiveGadget {
     knowledge_base: std::sync::Arc<tokio::sync::RwLock<crate::mcp::native_introspection::KnowledgeBase>>,
-    parsers: HashMap<String, Box<dyn ObjectParser + Send + Sync>>,
+    parsers: std::sync::Arc<std::sync::RwLock<HashMap<String, Box<dyn ObjectParser + Send + Sync>>>>,
 }
 
 impl IntrospectiveGadget {
     /// Create a new Introspective Gadget
     pub async fn new(knowledge_base: std::sync::Arc<tokio::sync::RwLock<crate::mcp::native_introspection::KnowledgeBase>>) -> Result<Self> {
-        let mut parsers = HashMap::new();
+        let mut parsers: HashMap<String, Box<dyn ObjectParser + Send + Sync>> = HashMap::new();
 
         // Register all built-in parsers
         parsers.insert("json".to_string(), Box::new(JsonParser));
@@ -55,7 +55,7 @@ impl IntrospectiveGadget {
 
         Ok(Self {
             knowledge_base,
-            parsers,
+            parsers: std::sync::Arc::new(std::sync::RwLock::new(parsers)),
         })
     }
 
@@ -73,7 +73,7 @@ impl IntrospectiveGadget {
         let mut errors = Vec::new();
 
         // Try the detected format first
-        if let Some(parser) = self.parsers.get(&detected_format) {
+        if let Some(parser) = self.parsers.read().unwrap().get(&detected_format) {
             match parser.parse(&input).await {
                 Ok(result) => results.push(result),
                 Err(e) => errors.push(format!("{} parser failed: {}", detected_format, e)),
@@ -82,7 +82,7 @@ impl IntrospectiveGadget {
 
         // If that didn't work, try auto-detection
         if results.is_empty() {
-            if let Some(auto_parser) = self.parsers.get("auto") {
+            if let Some(auto_parser) = self.parsers.read().unwrap().get("auto") {
                 match auto_parser.parse(&input).await {
                     Ok(result) => results.push(result),
                     Err(e) => errors.push(format!("Auto parser failed: {}", e)),
@@ -92,7 +92,7 @@ impl IntrospectiveGadget {
 
         // Try all parsers if still no results
         if results.is_empty() {
-            for (format_name, parser) in &self.parsers {
+            for (format_name, parser) in self.parsers.read().unwrap().iter() {
                 if format_name != &detected_format && format_name != "auto" {
                     match parser.parse(&input).await {
                         Ok(result) => results.push(result),
@@ -117,7 +117,7 @@ impl IntrospectiveGadget {
         // Add to knowledge base
         {
             let mut kb = self.knowledge_base.write().await;
-            kb.schemas.insert(kb_entry.name.clone(), kb_entry.schema);
+            kb.schemas.insert(kb_entry.name.clone(), kb_entry.clone());
         }
 
         let inspection_time = start_time.elapsed().as_millis();
@@ -134,7 +134,7 @@ impl IntrospectiveGadget {
     }
 
     /// Inspect a Docker container (specialized method)
-    pub async fn inspect_docker_container(&self, container_name: &str) -> Result<ContainerInspection> {
+    pub async fn inspect_docker_container(&self, container_name: &str) -> Result<ContainerInspectionWithKnowledge> {
         // Get container info
         let inspect_output = tokio::process::Command::new("docker")
             .args(&["inspect", container_name])
@@ -180,8 +180,8 @@ impl IntrospectiveGadget {
             id: container_data[0]["Id"].as_str().unwrap_or("").to_string(),
             image: container_data[0]["Config"]["Image"].as_str().unwrap_or("").to_string(),
             status: container_data[0]["State"]["Status"].as_str().unwrap_or("").to_string(),
-            config,
-            network_settings,
+            config: config.clone(),
+            network_settings: network_settings.clone(),
             mounts,
             processes,
             ports: self.extract_container_ports(&network_settings),
@@ -291,7 +291,7 @@ impl IntrospectiveGadget {
             }
             InspectionSource::DockerContainer(_) => Ok("docker".to_string()),
             InspectionSource::RawData { format_hint, .. } => {
-                format_hint.clone().unwrap_or_else(|| "auto".to_string())
+                Ok(format_hint.clone().unwrap_or_else(|| "auto".to_string()))
             }
             _ => Ok("auto".to_string()),
         }
@@ -461,9 +461,9 @@ impl IntrospectiveGadget {
                     vsz: parts[5].parse().unwrap_or(0),
                     rss: parts[6].parse().unwrap_or(0),
                     tty: parts[7].to_string(),
-                    stat: parts.get(8).unwrap_or("").to_string(),
-                    start: parts.get(9).unwrap_or("").to_string(),
-                    time: parts.get(10).unwrap_or("").to_string(),
+                    stat: parts.get(8).map_or("", |v| v).to_string(),
+                    start: parts.get(9).map_or("", |v| v).to_string(),
+                    time: parts.get(10).map_or("", |v| v).to_string(),
                     command: parts[11..].join(" "),
                 });
             }

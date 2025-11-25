@@ -1,0 +1,90 @@
+# External MCP Servers Configuration
+# Each server gets its own endpoint: /api/mcp/{name}
+
+[[servers]]
+name = "npm"
+description = "NPM package management via MCP"
+enabled = true
+
+[servers.transport]
+type = "stdio"
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-everything"]
+# Alternative: Use specific npm server
+# command = "node"
+# args = ["node_modules/@npmclient/mcp-server/bin/index.js"]
+
+[[servers]]
+name = "github"
+description = "GitHub repository operations via MCP"
+enabled = true
+
+[servers.transport]
+type = "stdio"
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-github"]
+
+[servers.transport.env]
+GITHUB_PERSONAL_ACCESS_TOKEN = "${GITHUB_TOKEN}"
+
+[[servers]]
+name = "postgres"
+description = "PostgreSQL database operations via MCP"
+enabled = false  # Enable when you have a database
+
+[servers.transport]
+type = "stdio"
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-postgres"]
+
+[servers.transport.env]
+POSTGRES_CONNECTION_STRING = "${POSTGRES_URL}"
+
+[[servers]]
+name = "filesystem"
+description = "File system operations via MCP"
+enabled = true
+
+[servers.transport]
+type = "stdio"
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-filesystem", "/home"]
+
+[[servers]]
+name = "brave-search"
+description = "Web search via Brave Search API"
+enabled = false  # Requires API key
+
+[servers.transport]
+type = "stdio"
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-brave-search"]
+
+[servers.transport.env]
+BRAVE_API_KEY = "${BRAVE_API_KEY}"
+
+[[servers]]
+name = "docker"
+description = "Docker operations via custom MCP server"
+enabled = true
+
+[servers.transport]
+type ="http"
+url = "http://localhost:3001/mcp"
+ 
+# Custom HTTP-based MCP server example
+# You can run your own MCP  servers and connect via HTTP
+
+[[servers]]
+name = "slack"
+description = "Slack messaging via MCP"
+enabled = false
+
+[servers.transport]
+type = "stdio"
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-slack"]
+
+[servers.transport.env]
+SLACK_BOT_TOKEN = "${SLACK_BOT_TOKEN}"
+SLACK_TEAM_ID = "${SLACK_TEAM_ID}"

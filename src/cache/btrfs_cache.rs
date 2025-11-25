@@ -70,47 +70,7 @@ pub struct BtrfsCache {
 impl BtrfsCache {
     /// Create BTRFS subvolume at specified path
     async fn create_btrfs_subvolume(path: &Path) -> Result<()> {
-        use tokio::process::Command;
-
-        if path.exists() {
-            // Check if it's already a BTRFS subvolume
-            let output = Command::new("btrfs")
-                .args(["subvolume", "show", &path.to_string_lossy()])
-                .output()
-                .await;
-
-            if output.is_ok() && output.unwrap().status.success() {
-                debug!("BTRFS subvolume already exists: {}", path.display());
-                return Ok(());
-            } else {
-                // Path exists but is not a subvolume, remove it
-                if path.is_dir() {
-                    tokio::fs::remove_dir_all(path).await?;
-                } else {
-                    tokio::fs::remove_file(path).await?;
-                }
-            }
-        }
-
-        // Ensure parent directory exists
-        if let Some(parent) = path.parent() {
-            tokio::fs::create_dir_all(parent).await?;
-        }
-
-        // Create BTRFS subvolume
-        let output = Command::new("btrfs")
-            .args(["subvolume", "create", &path.to_string_lossy()])
-            .output()
-            .await
-            .context("Failed to execute btrfs command")?;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            anyhow::bail!("btrfs subvolume create failed: {}", stderr);
-        }
-
-        info!("Created BTRFS subvolume: {}", path.display());
-        Ok(())
+        crate::native::btrfs::create_subvolume(path).await
     }
 
     /// Create new BTRFS cache with proper subvolumes
